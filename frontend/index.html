@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Disaster Management System v3</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #050510;
+            --card: rgba(255, 255, 255, 0.03);
+            --border: rgba(255, 255, 255, 0.1);
+            --text: #ffffff;
+            --muted: #a0a0b0;
+            --accent-test: #00ff88;
+            --accent-showcase: #0088ff;
+            --glass: rgba(10, 10, 25, 0.7);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Abstract Glow Background */
+        .glow-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: -1;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(0, 255, 136, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 80% 80%, rgba(0, 136, 255, 0.05) 0%, transparent 40%);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #fff 0%, #a0a0b0 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--muted);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Mode Selection Grid */
+        .modes-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 60px;
+        }
+
+        .mode-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 40px;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .mode-card:hover {
+            transform: translateY(-10px);
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .mode-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+        }
+
+        .mode-test::before {
+            background: var(--accent-test);
+        }
+
+        .mode-showcase::before {
+            background: var(--accent-showcase);
+        }
+
+        .mode-card h2 {
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .mode-test h2 {
+            color: var(--accent-test);
+        }
+
+        .mode-showcase h2 {
+            color: var(--accent-showcase);
+        }
+
+        .mode-card p {
+            color: var(--muted);
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .mode-test .badge {
+            background: rgba(0, 255, 136, 0.1);
+            color: var(--accent-test);
+            border: 1px solid rgba(0, 255, 136, 0.2);
+        }
+
+        .mode-showcase .badge {
+            background: rgba(0, 136, 255, 0.1);
+            color: var(--accent-showcase);
+            border: 1px solid rgba(0, 136, 255, 0.2);
+        }
+
+        /* Quick Links Footer */
+        .portals-section {
+            text-align: center;
+        }
+
+        .portals-title {
+            font-size: 1rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 30px;
+        }
+
+        .portals-list {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .portal-link {
+            padding: 12px 24px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+
+        .portal-link:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: #fff;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .modes-grid {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 2.2rem;
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate {
+            animation: fadeIn 0.8s ease forwards;
+        }
+
+        .delay-1 {
+            animation-delay: 0.2s;
+            opacity: 0;
+        }
+
+        .delay-2 {
+            animation-delay: 0.4s;
+            opacity: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="glow-bg"></div>
+
+    <div class="container">
+        <header class="animate">
+            <h1>Disaster Management System <span style="font-weight: 300;">v3</span></h1>
+            <p class="subtitle">A mission-critical rescue network for real-time coordination, autonomous assignment, and
+                multi-channel emergency reporting.</p>
+        </header>
+
+        <div class="modes-grid">
+            <a href="sos.html?mode=test" class="mode-card mode-test animate delay-1" onclick="setMode('test')">
+                <div class="badge">Simulated Environment</div>
+                <h2 style="margin-top:20px">🟢 Test Mode</h2>
+                <p>Loads with a comprehensive 4-tier responder database for Chennai. Ideal for exploring system
+                    features, map visualizations, and pre-seeded mission states.</p>
+                <div style="font-size: 0.9rem; font-weight: 600;">ENTER TEST SUITE →</div>
+            </a>
+
+            <a href="#" class="mode-card mode-showcase animate delay-2" onclick="startShowcase(event)">
+                <div class="badge">Fresh Live Demo</div>
+                <h2 style="margin-top:20px">🔵 Showcase Mode</h2>
+                <p>Resets the system to a clean state. Wipes all SOS tickets and missions, keeping only registered
+                    responders. Perfect for proving end-to-end flow to mentors.</p>
+                <div style="font-size: 0.9rem; font-weight: 600;">START NEW DEMO →</div>
+            </a>
+        </div>
+
+        <div class="portals-section animate delay-2" style="animation-delay: 0.6s;">
+            <div class="portals-title">Direct Portal Access</div>
+            <div class="portals-list">
+                <a href="sos.html" class="portal-link">🆘 SOS Portal</a>
+                <a href="responders_register.html" class="portal-link">🤝 Volunteer Portal</a>
+                <a href="commander.html" class="portal-link">🎯 Team Dashboard</a>
+                <a href="authority.html" class="portal-link">🏛️ Authority Monitor</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function setMode(mode) {
+            localStorage.setItem('dms_mode', mode);
+        }
+
+        async function startShowcase(e) {
+            e.preventDefault();
+            const confirmed = confirm("This will WIPE all current SOS requests and missions for a fresh demo. Continue?");
+            if (!confirmed) return;
+
+            try {
+                const res = await fetch('http://localhost:8000/api/admin/reset-showcase', {
+                    method: 'POST'
+                });
+                if (res.ok) {
+                    setMode('showcase');
+                    window.location.href = 'sos.html';
+                } else {
+                    alert("Failed to reset system. Ensure backend is running.");
+                }
+            } catch (err) {
+                alert("Network error: " + err.message);
+            }
+        }
+
+        // Default to test if nothing set
+        if (!localStorage.getItem('dms_mode')) {
+            localStorage.setItem('dms_mode', 'test');
+        }
+    </script>
+</body>
+
+</html>

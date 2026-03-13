@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Responder App – Ground Zero</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --bg: #09090f;
+            --card: #141426;
+            --text: #ffffff;
+            --muted: #888899;
+            --accent: #0088ff;
+            --green: #00ff88;
+            --red: #ff3b3b;
+            --orange: #ff9f00;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow-y: scroll;
+            padding-bottom: 80px;
+        }
+
+        /* Login Layer */
+        #login-screen {
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        /* Nav */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(15, 15, 30, 0.95);
+            backdrop-filter: blur(10px);
+            display: flex;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            height: 70px;
+            z-index: 500;
+        }
+
+        .nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            color: var(--muted);
+            cursor: pointer;
+        }
+
+        .nav-item.active {
+            color: var(--accent);
+        }
+
+        .nav-item span {
+            font-size: 1.4rem;
+        }
+
+        .nav-item label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .header {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .container {
+            padding: 15px;
+        }
+
+        /* Utility */
+        .badge {
+            padding: 4px 10px;
+            border-radius: 100px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .badge-available {
+            background: rgba(0, 255, 136, 0.1);
+            color: var(--green);
+            border: 1px solid var(--green);
+        }
+
+        .badge-busy {
+            background: rgba(255, 159, 0, 0.1);
+            color: var(--orange);
+            border: 1px solid var(--orange);
+        }
+
+        /* Mission Card */
+        .mission-card {
+            background: var(--card);
+            border-radius: 20px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+        }
+
+        .card-inner {
+            padding: 20px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--orange);
+        }
+
+        .sos-meta {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .meta-item {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+        }
+
+        .meta-item label {
+            display: block;
+            font-size: 0.65rem;
+            color: var(--muted);
+            margin-bottom: 2px;
+            text-transform: uppercase;
+        }
+
+        .btn-action {
+            width: 100%;
+            padding: 18px;
+            border: none;
+            font-size: 1rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .btn-success {
+            background: var(--green);
+            color: #000;
+        }
+
+        .btn-danger {
+            background: var(--red);
+            color: #fff;
+        }
+
+        /* Map Container */
+        #pane-map {
+            position: fixed;
+            top: 70px;
+            bottom: 70px;
+            left: 0;
+            right: 0;
+            padding: 0;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+            border-radius: 0;
+            margin-bottom: 0;
+            border: none;
+        }
+
+        .map-hud {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            z-index: 600;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .map-legend {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        /* Form */
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            padding: 14px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: #fff;
+            font-family: inherit;
+        }
+
+        .pane {
+            display: none;
+        }
+
+        .pane.active {
+            display: block;
+        }
+
+        /* Pulse for Active Mission */
+        .pulse-border {
+            border: 2px solid var(--orange) !important;
+            animation: borderPulse 2s infinite;
+        }
+
+        @keyframes borderPulse {
+            0% {
+                border-color: var(--orange);
+            }
+
+            50% {
+                border-color: transparent;
+            }
+
+            100% {
+                border-color: var(--orange);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="login-screen">
+        <div style="font-size: 4rem; margin-bottom: 20px;">🦺</div>
+        <h1 style="margin-bottom: 10px;">Responder App</h1>
+        <p style="color: var(--muted); margin-bottom: 30px;">Login with your registered phone number</p>
+        <div style="width: 100%">
+            <input type="tel" id="login-phone" placeholder="+91 XXXX XXXX XX"
+                style="text-align: center; margin-bottom: 15px;">
+            <button class="btn-action btn-primary" onclick="login()">LOGIN TO DISASTER GRID</button>
+        </div>
+        <div style="margin-top: 30px; font-size: 0.85rem; color: var(--muted);">Demo: Use <b>9841001001</b> (Alpha Team)
+        </div>
+    </div>
+
+    <div class="header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div id="me-icon" style="font-size: 1.5rem;">🧑‍🚒</div>
+            <div>
+                <div id="me-name" style="font-weight: 800; font-size: 0.9rem;">Team Name</div>
+                <div id="me-status-badge" class="badge">Offline</div>
+            </div>
+        </div>
+        <button id="btn-toggle-online" onclick="toggleOnline()"
+            style="padding: 10px 15px; border-radius: 100px; border: 1px solid #fff; background: transparent; color: #fff; font-size: 0.7rem; font-weight: 800;">GO
+            ONLINE</button>
+        <button onclick="forceChennai()"
+            style="padding: 10px 15px; border-radius: 100px; border: 1px solid var(--accent); background: rgba(0,136,255,0.1); color: var(--accent); font-size: 0.7rem; font-weight: 800; margin-right: 10px;">FORCE
+            CHENNAI</button>
+    </div>
+
+    <div class="container">
+        <div id="pane-missions" class="pane active">
+            <h3 style="margin-bottom: 20px;">Assigned Missions</h3>
+            <div id="mission-list">
+                <div style="text-align: center; color: var(--muted); padding: 50px 0;">No missions assigned. <br>Stay
+                    online to receive alerts.</div>
+            </div>
+
+            <h3 style="margin-top: 40px; margin-bottom: 20px;">Nearby Teams</h3>
+            <div id="nearby-teams" style="display: flex; flex-direction: column; gap: 10px;">
+                <div style="text-align: center; color: var(--muted); font-size: 0.85rem;">Searching for nearby
+                    responders...</div>
+            </div>
+        </div>
+
+        <div id="pane-map" class="pane">
+            <div id="map"></div>
+            <div class="map-hud">
+                <div class="map-legend">
+                    <span><span style="color:var(--accent)">●</span> ME</span>
+                    <span><span style="color:var(--green)">●</span> Available</span>
+                    <span><span style="color:#555">●</span> Busy</span>
+                </div>
+                <button onclick="recenterMap()"
+                    style="width: 100%; padding: 15px; border-radius: 15px; border: 1px solid var(--accent); background: rgba(0,136,255,0.7); backdrop-filter:blur(5px); color: #fff; font-size: 0.8rem; font-weight: 800; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">📍
+                    RECENTER ON ME</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="pane-reports" class="pane">
+        <h3 style="margin-bottom: 25px;">Area Condition Report</h3>
+        <div class="input-group">
+            <label>Flood Water Level</label>
+            <select id="rep-water">
+                <option value="none">None</option>
+                <option value="ankle">Ankle Deep</option>
+                <option value="knee">Knee Deep</option>
+                <option value="waist">Waist Deep</option>
+                <option value="chest">Chest Deep</option>
+                <option value="extreme">Extreme / Unsafe</option>
+            </select>
+        </div>
+        <div class="input-group" style="display: flex; gap: 20px; align-items: center;">
+            <input type="checkbox" id="rep-road" style="width: 20px; height: 20px;">
+            <label style="margin: 0;">Road Blocked?</label>
+        </div>
+        <div class="input-group" style="display: flex; gap: 20px; align-items: center;">
+            <input type="checkbox" id="rep-fire" style="width: 20px; height: 20px;">
+            <label style="margin: 0;">Fire/Hazmat Present?</label>
+        </div>
+        <div class="input-group">
+            <label>Structural Damage</label>
+            <select id="rep-damage">
+                <option value="none">None</option>
+                <option value="partial">Partial / Cracks</option>
+                <option value="severe">Severe / Collapse</option>
+            </select>
+        </div>
+        <div class="input-group">
+            <label>Notes</label>
+            <textarea id="rep-notes" rows="3" placeholder="Additional details for command center..."></textarea>
+        </div>
+        <button class="btn-action btn-primary" style="border-radius: 15px;" onclick="submitReport()">SUBMIT LIVE
+            REPORT</button>
+    </div>
+
+    <div id="pane-history" class="pane">
+        <h3 style="margin-bottom: 20px;">Mission History</h3>
+        <div style="text-align: center; color: var(--muted); padding: 50px 0;">No past missions found.</div>
+    </div>
+    </div>
+
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="switchNav('missions')"><span>📋</span><label>Missions</label></div>
+        <div class="nav-item" onclick="switchNav('map')"><span>🗺️</span><label>Map</label></div>
+        <div class="nav-item" onclick="switchNav('reports')"><span>⚠️</span><label>Report</label></div>
+        <div class="nav-item" onclick="switchNav('history')"><span>📜</span><label>History</label></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const API = 'http://localhost:8000/api';
+        let me = null;
+        let gps = { lat: null, lon: null, acc: null };
+        let map = null, myMarker = null;
+        let assignmentPolling = null;
+
+        async function login() {
+            const phone = document.getElementById('login-phone').value;
+            if (!phone) return alert("Enter phone");
+
+            try {
+                const res = await fetch(`${API}/responders/by-phone/${phone}`);
+                if (res.ok) {
+                    me = await res.json();
+                    document.getElementById('login-screen').style.display = 'none';
+                    initApp();
+                } else {
+                    alert("Login failed. Registration not found for this number.");
+                }
+            } catch (e) { alert("Network error"); }
+        }
+
+        function initApp() {
+            document.getElementById('me-name').textContent = me.name;
+            document.getElementById('me-icon').textContent = getIcon(me.type);
+            updateStatusUI();
+
+            // GPS Start
+            if ("geolocation" in navigator) {
+                navigator.geolocation.watchPosition(pos => {
+                    gps.lat = pos.coords.latitude;
+                    gps.lon = pos.coords.longitude;
+                    gps.acc = pos.coords.accuracy;
+
+                    // Update UI status
+                    const badge = document.getElementById('me-status-badge');
+                    if (gps.acc > 100) badge.title = "Low accuracy: ±" + Math.round(gps.acc) + "m";
+
+                    pushLocation();
+                    if (map && document.getElementById('pane-map').classList.contains('active')) {
+                        updateMyMarker();
+                    }
+                }, err => {
+                    console.error("GPS Error:", err);
+                }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+            }
+
+            refreshData();
+            assignmentPolling = setInterval(refreshData, 10000);
+        }
+
+        function getIcon(type) {
+            const icons = { boat: '🚤', medical: '🏥', volunteer: '🧑‍🚒', ambulance: '🚑', helicopter: '🚁', logistics: '🚛', fire: '🚒' };
+            return icons[type] || '🧑‍🚒';
+        }
+
+        function switchNav(id) {
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            document.getElementById('pane-' + id).classList.add('active');
+            if (id === 'map') initMap();
+        }
+
+        async function toggleOnline() {
+            const newStatus = me.status === 'offline' ? 'available' : 'offline';
+            const res = await fetch(`${API}/responders/${me.id}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            });
+            if (res.ok) {
+                me.status = newStatus;
+                updateStatusUI();
+            }
+        }
+
+        function updateStatusUI() {
+            const badge = document.getElementById('me-status-badge');
+            const btn = document.getElementById('btn-toggle-online');
+            badge.className = 'badge badge-' + (me.status === 'available' ? 'available' : (me.status === 'busy' ? 'busy' : 'offline'));
+            badge.textContent = me.status.toUpperCase();
+            btn.textContent = me.status === 'offline' ? 'GO ONLINE' : 'GO OFFLINE';
+        }
+
+        async function pushLocation() {
+            if (!me) return;
+            await fetch(`${API}/responders/${me.id}/location`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lat: gps.lat, lon: gps.lon, accuracy: gps.acc })
+            });
+        }
+
+        async function refreshData() {
+            if (!me) return;
+
+            // Missions
+            const res = await fetch(`${API}/missions/my-assignments/${me.id}`);
+            const missions = await res.json();
+            renderMissions(missions);
+
+            // Nearby
+            if (gps.lat) {
+                // Fetch ALL nearby, not just available
+                const nr = await fetch(`${API}/responders/nearby?lat=${gps.lat}&lon=${gps.lon}&radius_km=5`);
+                const teams = await nr.json();
+                renderNearby(teams);
+                if (map) updateNearbyMarkers(teams);
+            }
+        }
+
+        function renderMissions(list) {
+            const container = document.getElementById('mission-list');
+            if (!list.length) {
+                container.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 50px 0;">No missions assigned. <br>Stay online to receive alerts.</div>';
+                return;
+            }
+
+            container.innerHTML = list.map(m => `
+            <div class="mission-card ${m.status !== 'created' ? 'pulse-border' : ''}">
+                <div class="card-inner">
+                    <div class="card-header">
+                        <div class="card-title">${m.emergency_type.toUpperCase()} RESCUE</div>
+                        <div class="badge ${m.status === 'en_route' ? 'badge-busy' : 'badge-available'}">${m.status.replace('_', ' ')}</div>
+                    </div>
+                    <div style="font-size: 0.9rem; margin-bottom: 10px;">📍 ${m.approx_loc || 'Unknown Location'}</div>
+                    ${m.special_instruction ? `
+                        <div style="background: rgba(255,159,0,0.1); border: 1px solid var(--orange); padding:10px; border-radius:10px; font-size:0.75rem; color:var(--orange); margin-bottom:12px;">
+                            📜 <b>INSTRUCTION:</b> ${m.special_instruction}
+                        </div>
+                    ` : ''}
+                    <div class="sos-meta">
+                        <div class="meta-item"><label>PEOPLE</label>${m.people_count} Victims</div>
+                        <div class="meta-item"><label>PRIORITY</label>${m.priority_score || 'High'}</div>
+                    </div>
+                </div>
+                ${m.status === 'assigned' || m.status === 'created' ?
+                    `<button class="btn-action btn-success" onclick="updateMission('${m.id}', 'accept')">ACCEPT MISSION</button>` :
+                    `<div style="display: flex;">
+                        <button class="btn-action btn-primary" style="flex: 2" onclick="openNav(${m.sos_lat}, ${m.sos_lon})">🗺️ NAVIGATE</button>
+                        <button class="btn-action btn-danger" style="flex: 1; border-left: 1px solid rgba(255,255,255,0.1)" onclick="requestBackup('${m.id}')">🆘 BACKUP</button>
+                     </div>
+                     <button class="btn-action btn-success" onclick="advanceStatus('${m.id}', '${m.status}')">${getNextStatusLabel(m.status)}</button>`
+                }
+            </div>
+        `).join('');
+        }
+
+        function getNextStatusLabel(curr) {
+            const flow = { en_route: 'Reached Location', on_site: 'Start Rescue', rescue_in_progress: 'Complete Rescue' };
+            return flow[curr] || 'Update Status';
+        }
+
+        async function advanceStatus(id, curr) {
+            const flow = { en_route: 'on_site', on_site: 'rescue_in_progress', rescue_in_progress: 'completed' };
+            const next = flow[curr];
+            if (!next) return;
+
+            const res = await fetch(`${API}/missions/${id}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: next })
+            });
+            if (res.ok) refreshData();
+        }
+
+        async function updateMission(id, action) {
+            const res = await fetch(`${API}/missions/${id}/${action}`, { method: 'PUT' });
+            if (res.ok) refreshData();
+        }
+
+        function renderNearby(teams) {
+            const container = document.getElementById('nearby-teams');
+            const filtered = teams.filter(t => t.id !== me.id);
+            if (!filtered.length) {
+                container.innerHTML = '<div style="text-align: center; color: var(--muted); font-size: 0.85rem;">No other teams nearby.</div>';
+                return;
+            }
+            container.innerHTML = filtered.map(t => `
+            <div style="display: flex; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 12px; border: 1px solid ${t.status === 'available' ? 'rgba(0,255,136,0.2)' : 'rgba(255,255,255,0.05)'};">
+                <div>${getIcon(t.type)} ${t.name} <span style="font-size: 0.7rem; color: var(--muted);">(${t.distance_km || '?'}km)</span></div>
+                <div style="color: ${t.status === 'available' ? 'var(--green)' : 'var(--muted)'}; font-weight: 800; font-size: 0.7rem;">${t.status.toUpperCase()}</div>
+            </div>
+        `).join('');
+        }
+
+        function initMap() {
+            if (!map) {
+                map = L.map('map', { zoomControl: false }).setView([gps.lat || 13.08, gps.lon || 80.27], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            }
+            updateMyMarker();
+        }
+
+        function updateMyMarker() {
+            if (!gps.lat) return;
+            if (myMarker) map.removeLayer(myMarker);
+            myMarker = L.circleMarker([gps.lat, gps.lon], { color: 'var(--accent)', radius: 8, fillOpacity: 1 }).addTo(map);
+
+            // Add accuracy circle
+            if (window.accCircle) map.removeLayer(window.accCircle);
+            window.accCircle = L.circle([gps.lat, gps.lon], { radius: gps.acc, weight: 1, color: 'var(--accent)', fillOpacity: 0.1 }).addTo(map);
+        }
+
+        let peerMarkers = {};
+        function updateNearbyMarkers(teams) {
+            teams.forEach(t => {
+                if (t.id === me.id || !t.lat) return;
+                const color = t.status === 'available' ? 'var(--green)' : '#555';
+                if (peerMarkers[t.id]) {
+                    peerMarkers[t.id].setLatLng([t.lat, t.lon]).setStyle({ color });
+                } else {
+                    peerMarkers[t.id] = L.circleMarker([t.lat, t.lon], { color, radius: 6, weight: 2, fillOpacity: 0.8 })
+                        .addTo(map).bindTooltip(`${t.name} (${t.status})`);
+                }
+            });
+        }
+
+        function recenterMap() {
+            if (gps.lat) map.flyTo([gps.lat, gps.lon], 16);
+            else alert("Waiting for GPS fix...");
+        }
+
+        function forceChennai() {
+            gps.lat = 13.0827;
+            gps.lon = 80.2707;
+            gps.acc = 10;
+            pushLocation();
+            if (map) {
+                updateMyMarker();
+                map.flyTo([gps.lat, gps.lon], 16);
+            }
+            alert("Simulated Location: Chennai Central");
+        }
+
+        function openNav(lat, lon) {
+            window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`);
+        }
+
+        async function submitReport() {
+            const data = {
+                responder_id: me.id,
+                lat: gps.lat,
+                lon: gps.lon,
+                water_level: document.getElementById('rep-water').value,
+                road_blocked: document.getElementById('rep-road').checked,
+                fire_detected: document.getElementById('rep-fire').checked,
+                building_damage: document.getElementById('rep-damage').value,
+                notes: document.getElementById('rep-notes').value
+            };
+
+            const res = await fetch(`${API}/area-reports`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (res.ok) {
+                alert("Report submitted to command center.");
+                document.getElementById('rep-notes').value = '';
+            }
+        }
+
+        async function requestBackup(missionId) {
+            const type = prompt("What type of backup do you need? (boat/medical/fire/evacuation/logistics)", "boat");
+            if (!type) return;
+            const msg = prompt("Details (e.g. '3 more people stuck on roof')");
+
+            const res = await fetch(`${API}/missions/${missionId}/request-backup`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ request_type: type, message: msg })
+            });
+            if (res.ok) alert("Backup request sent. Commander has been alerted.");
+        }
+    </script>
+
+</body>
+
+</html>

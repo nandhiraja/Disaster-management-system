@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Disaster Operations Command Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --bg: #050510;
+            --panel: #0d0d1f;
+            --card: #15152a;
+            --text: #ffffff;
+            --muted: #888899;
+            --accent: #0088ff;
+            --red: #ff3b3b;
+            --green: #00ff88;
+            --orange: #ff9f00;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+        }
+
+        /* Left Control Panel */
+        .controls {
+            width: 450px;
+            height: 100%;
+            background: var(--panel);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+        }
+
+        .ctrl-header {
+            padding: 25px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .tabs {
+            display: flex;
+            padding: 10px;
+            gap: 5px;
+            background: rgba(0, 0, 0, 0.2);
+            margin: 15px;
+            border-radius: 12px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 8px;
+            text-align: center;
+            font-size: 0.75rem;
+            font-weight: 800;
+            border-radius: 8px;
+            cursor: pointer;
+            color: var(--muted);
+        }
+
+        .tab.active {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .list-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 0 15px 15px;
+        }
+
+        /* Map View */
+        #map {
+            flex-grow: 1;
+            height: 100%;
+            position: relative;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .card:hover {
+            border-color: var(--accent);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .card.active {
+            border-color: var(--accent);
+            box-shadow: 0 0 15px rgba(0, 136, 255, 0.2);
+        }
+
+        .card-title {
+            font-size: 0.95rem;
+            font-weight: 800;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .card-meta {
+            display: flex;
+            gap: 10px;
+            font-size: 0.75rem;
+            color: var(--muted);
+        }
+
+        .priority-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .btn-assign {
+            width: 100%;
+            padding: 10px;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 800;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        /* Float Overlays */
+        .stat-bar {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(13, 13, 31, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 15px 25px;
+            border-radius: 20px;
+            display: flex;
+            gap: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            z-index: 500;
+        }
+
+        .stat-item label {
+            display: block;
+            font-size: 0.65rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-item span {
+            font-size: 1.2rem;
+            font-weight: 800;
+        }
+
+        /* SOS Alert List */
+        .alert-box {
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            border-left: 4px solid #fff;
+        }
+
+        .alert-critical {
+            background: rgba(255, 59, 59, 0.1);
+            border-color: var(--red);
+            color: #ff9999;
+        }
+
+        .alert-warning {
+            background: rgba(255, 159, 0, 0.1);
+            border-color: var(--orange);
+            color: #ffcc88;
+        }
+
+        /* LEGEND & CONTROLS */
+        .legend {
+            position: absolute;
+            bottom: 30px;
+            right: 20px;
+            background: var(--panel);
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            z-index: 500;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .map-btn {
+            position: absolute;
+            bottom: 30px;
+            right: 180px;
+            background: var(--panel);
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            z-index: 500;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            cursor: pointer;
+            font-weight: 800;
+        }
+
+        /* Assignment HUD */
+        #assign-hud {
+            position: absolute;
+            bottom: 30px;
+            left: 480px;
+            width: 350px;
+            background: var(--panel);
+            border: 1px solid var(--accent);
+            border-radius: 20px;
+            padding: 20px;
+            display: none;
+            z-index: 600;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="controls">
+        <div class="ctrl-header">
+            <h2 style="font-weight: 800; letter-spacing: -1px;">TEAM DASHBOARD <span
+                    style="font-weight: 300; font-size: 0.8rem; color: var(--muted);">OPERATIONS</span></h2>
+            <select id="zone-select"
+                style="width:100%; margin-top:10px; background:rgba(0,0,0,0.3); border:1px solid rgba(0,136,255,0.3); color:var(--accent); font-weight:800; padding:8px; border-radius:8px;"
+                onchange="changeZone()">
+                <option value="">📍 SELECT OPERATIONAL ZONE...</option>
+            </select>
+        </div>
+
+        <!-- System Navigation -->
+        <div style="display: flex; padding: 0 15px; gap: 5px; margin-top: 10px;">
+            <a href="sos.html"
+                style="flex:1; padding: 8px; text-align:center; font-size: 0.7rem; border-radius: 6px; background: rgba(255,59,59,0.1); color: #ff9999; text-decoration: none; border: 1px solid rgba(255,59,59,0.2);">🆘
+                SOS</a>
+            <a href="responders_register.html"
+                style="flex:1; padding: 8px; text-align:center; font-size: 0.7rem; border-radius: 6px; background: rgba(0,255,136,0.1); color: #99ffcc; text-decoration: none; border: 1px solid rgba(0,255,136,0.2);">🤝
+                VOLUNTEER</a>
+            <a href="authority.html"
+                style="flex:1; padding: 8px; text-align:center; font-size: 0.7rem; border-radius: 6px; background: rgba(0,136,255,0.1); color: #99ccff; text-decoration: none; border: 1px solid rgba(0,136,255,0.2);">🏛️
+                AUTHORITY</a>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('sos', this)">SOS QUEUE</div>
+            <div class="tab" onclick="switchTab('missions', this)">MISSIONS</div>
+            <div class="tab" onclick="switchTab('resources', this)">RESOURCES</div>
+            <div class="tab" onclick="switchTab('alerts', this)">ALERTS</div>
+        </div>
+
+        <div id="list-sos" class="list-container"></div>
+        <div id="list-missions" class="list-container" style="display:none"></div>
+        <div id="list-resources" class="list-container" style="display:none"></div>
+        <div id="list-alerts" class="list-container" style="display:none"></div>
+    </div>
+
+    <div id="map">
+        <div class="stat-bar">
+            <div class="stat-item"><label>Active SOS</label><span id="stat-sos">0</span></div>
+            <div class="stat-item"><label>Responders</label><span id="stat-resp">0</span></div>
+            <div class="stat-item"><label>In Rescue</label><span id="stat-rescue">0</span></div>
+        </div>
+
+        <div
+            style="position:absolute; top:100px; right:20px; z-index:500; display:flex; flex-direction:column; gap:10px;">
+            <button class="map-btn" style="position:static;" onclick="fitAll()">⛶ FIT ALL</button>
+            <button id="topo-btn" class="map-btn"
+                style="position:static; border-color:var(--orange); color:var(--orange);" onclick="toggleTopo()">🏔️
+                TOPO MAP</button>
+        </div>
+
+        <div id="assign-hud">
+            <h3 id="hud-title" style="margin-bottom: 15px; color: var(--accent);">Match Responder</h3>
+            <div id="hud-candidates"></div>
+            <button class="btn-assign" style="margin-top: 15px; background: #222;" onclick="hideHUD()">CLOSE</button>
+        </div>
+
+        <div class="legend">
+            <div style="margin-bottom: 6px;"><span style="color:red">●</span> Critical SOS (Priority > 80)</div>
+            <div style="margin-bottom: 6px;"><span style="color:orange">●</span> Active SOS</div>
+            <div style="margin-bottom: 6px;"><span style="color:cyan">◆</span> Available Responder</div>
+            <div><span style="color:gray">◆</span> Busy/Offline</div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const API = 'http://localhost:8000/api';
+        const TN_DISTRICTS = ["Chennai", "Coimbatore", "Madurai", "Tiruchirappalli", "Salem", "Tirunelveli", "Vellore", "Erode", "Thoothukudi", "Thanjavur", "Dindigul", "Ranipet", "Karur", "Namakkal", "Krishnagiri", "Dharmapuri", "Villupuram", "Cuddalore", "Nagapattinam", "Tiruvarur", "Mayiladuthurai", "Ariyalur", "Perambalur", "Pudukkottai", "Sivaganga", "Virudhunagar", "Ramanathapuram", "Theni", "Nilgiris", "Tiruppur", "Kanchipuram", "Chengalpattu", "Kanyakumari", "Tiruvallur", "Kallakurichi", "Tirupattur", "Tenkasi", "Tiruvannamalai"];
+        const DIST_COORDS = { "Chennai": [13.0827, 80.2707], "Coimbatore": [11.0168, 76.9558], "Madurai": [9.9252, 78.1198], "Tiruchirappalli": [10.7905, 78.7047], "Salem": [11.6643, 78.1460], "Tirunelveli": [8.7139, 77.7567], "Vellore": [12.9165, 79.1325], "Erode": [11.3410, 77.7172], "Thoothukudi": [8.7642, 78.1348], "Thanjavur": [10.7870, 79.1378], "Dindigul": [10.3673, 77.9803], "Ranipet": [12.9327, 79.3320], "Karur": [10.9601, 78.0766], "Namakkal": [11.2189, 78.1674], "Krishnagiri": [12.5186, 78.2137], "Dharmapuri": [12.1278, 78.1574], "Villupuram": [11.9397, 79.4917], "Cuddalore": [11.7447, 79.7689], "Nagapattinam": [10.7654, 79.8428], "Tiruvarur": [10.7718, 79.6368], "Mayiladuthurai": [11.1028, 79.6510], "Ariyalur": [11.1382, 79.0778], "Perambalur": [11.2340, 78.8796], "Pudukkottai": [10.3797, 78.8206], "Sivaganga": [9.8473, 78.4872], "Virudhunagar": [9.5850, 77.9624], "Ramanathapuram": [9.3639, 78.8395], "Theni": [10.0106, 77.4772], "Nilgiris": [11.4916, 76.7337], "Tiruppur": [11.1085, 77.3411], "Kanchipuram": [12.8324, 79.7036], "Chengalpattu": [12.6926, 80.0086], "Tiruvallur": [13.1434, 79.9089], "Kallakurichi": [11.7367, 78.9584], "Tirupattur": [12.4965, 78.5718], "Tenkasi": [8.9609, 77.3150], "Tiruvannamalai": [12.2269, 79.0747], "Kanyakumari": [8.0883, 77.5385] };
+
+        let map, markers = { sos: {}, resp: {} };
+        let selectedSOS = null;
+        let lastData = { sos: [], resp: [], missions: [], alerts: [], backups: [] };
+        let baseLayers = {
+            dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'),
+            topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png')
+        };
+        let activeLayer = 'dark';
+
+        function init() {
+            map = L.map('map', { zoomControl: false }).setView([13.0827, 80.2707], 13);
+            baseLayers.dark.addTo(map);
+
+            const zoneSel = document.getElementById('zone-select');
+            TN_DISTRICTS.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d; opt.textContent = d.toUpperCase();
+                zoneSel.appendChild(opt);
+            });
+
+            refresh();
+            setInterval(refresh, 5000);
+        }
+
+        async function refresh() {
+            try {
+                const [sos, resp, missions, alerts, backups] = await Promise.all([
+                    fetch(`${API}/sos/all`).then(r => r.ok ? r.json() : []),
+                    fetch(`${API}/responders`).then(r => r.ok ? r.json() : []),
+                    fetch(`${API}/missions`).then(r => r.ok ? r.json() : []),
+                    fetch(`${API}/dashboard/alerts`).then(r => r.ok ? r.json() : []),
+                    fetch(`${API}/missions/support-requests`).then(r => r.ok ? r.json() : [])
+                ]);
+
+                lastData = { sos, resp, missions, alerts, backups };
+
+                updateStats(sos, resp, missions);
+                renderSOS(sos);
+                renderMissions(missions);
+                renderResources(resp);
+                renderAlerts(alerts, backups);
+                updateMap(sos, resp);
+
+                // Map Auto-Fit (once on first load if markers exist)
+                if (!window.initialFit && (Object.keys(markers.sos).length > 0 || Object.keys(markers.resp).length > 0)) {
+                    fitAll();
+                    window.initialFit = true;
+                }
+            } catch (e) {
+                console.error("Refresh failed:", e);
+            }
+        }
+
+        function fitAll() {
+            const allMarkers = [...Object.values(markers.sos), ...Object.values(markers.resp)];
+            if (allMarkers.length > 0) {
+                const group = new L.featureGroup(allMarkers);
+                if (group.getBounds().isValid()) {
+                    map.fitBounds(group.getBounds().pad(0.2));
+                }
+            }
+        }
+
+        function updateStats(sos, resp, m) {
+            document.getElementById('stat-sos').textContent = sos.filter(s => s.status === 'pending').length;
+            document.getElementById('stat-resp').textContent = resp.filter(r => r.status === 'available').length;
+            document.getElementById('stat-rescue').textContent = m.filter(mi => mi.status !== 'completed').length;
+        }
+
+        function renderSOS(list) {
+            const container = document.getElementById('list-sos');
+            const pending = list.filter(s => s.status === 'pending');
+            container.innerHTML = pending.length ? pending.map(s => `
+            <div class="card ${selectedSOS === s.sos_id ? 'active' : ''}" onclick="focusSOS('${s.sos_id}', ${s.lat || 13.08}, ${s.lon || 80.27})">
+                <div class="card-title">
+                    <span>${s.emergency_type.toUpperCase()}</span>
+                    <span style="color: ${s.priority_score > 80 ? 'var(--red)' : 'var(--orange)'}">${s.priority_score} PTS</span>
+                </div>
+                <div style="font-size: 0.8rem; margin-bottom: 8px;">📍 ${s.approx_loc || 'Nearby'}</div>
+                <div class="card-meta">
+                    <span>👥 ${s.people_count} Victims</span>
+                    <span>🕒 ${formatTime(s.created_at)}</span>
+                    <span>📡 ±${Math.round(s.gps_accuracy || 0)}m</span>
+                </div>
+                <button class="btn-assign" onclick="findMatches('${s.sos_id}', ${s.lat}, ${s.lon})">FIND NEAREST TEAM</button>
+            </div>
+        `).join('') : '<div style="color:var(--muted); text-align:center; padding:20px;">No pending SOS</div>';
+        }
+
+        function renderMissions(list) {
+            const container = document.getElementById('list-missions');
+            const active = list.filter(m => m.status !== 'completed');
+            container.innerHTML = active.map(m => `
+            <div class="card" onclick="map.flyTo([${m.sos_lat || 13.08}, ${m.sos_lon || 80.27}], 16)">
+                <div class="card-title">
+                    <span>${(m.type || 'Rescue').toUpperCase()}</span>
+                    <span style="font-size: 0.6rem; color: var(--accent);">${m.status.toUpperCase()}</span>
+                </div>
+                <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 8px;">🧑‍🚒 ${m.responder_name}</div>
+                <div style="display:flex; gap:3px; margin-bottom: 5px;">
+                    ${['assigned', 'en_route', 'on_site', 'rescue_in_progress'].map((s, i) => `
+                        <div style="flex:1; height:3px; border-radius:2px; background: ${STAGES.indexOf(m.status) >= i ? 'var(--green)' : 'rgba(255,255,255,0.1)'}"></div>
+                    `).join('')}
+                </div>
+            </div>
+        `).join('') || '<div style="color:var(--muted); text-align:center; padding:20px;">No active missions</div>';
+        }
+
+        const STAGES = ['assigned', 'en_route', 'on_site', 'rescue_in_progress', 'completed'];
+
+        async function renderResources(list) {
+            const container = document.getElementById('list-resources');
+            const res = await fetch(`${API}/responders/summary`);
+            const summary = await res.json();
+
+            let html = `
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
+                    ${summary.map(s => `
+                        <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:10px; text-align:center; border:1px solid rgba(255,255,255,0.05);">
+                            <div style="font-size:1.2rem;">${getIcon(s.type)}</div>
+                            <div style="font-size:0.6rem; color:var(--muted); text-transform:uppercase;">${s.type}</div>
+                            <div style="font-size:1rem; font-weight:800; color:var(--green)">${s.available}/${s.total}</div>
+                        </div>
+                    `).join('')}
+                </div>
+                <div style="font-size:0.7rem; font-weight:800; color:var(--muted); margin-bottom:10px;">INDIVIDUAL RESPONDERS</div>
+            `;
+
+            html += list.map(r => `
+                <div class="card" onclick="map.flyTo([${r.lat || 13.08}, ${r.lon || 80.27}], 16)">
+                    <div class="card-title">
+                        <span style="font-size:0.8rem;">${getIcon(r.type)} ${r.name}</span>
+                        <span style="font-size:0.6rem; color:${r.status === 'available' ? 'var(--green)' : '#ff5555'}">${r.status.toUpperCase()}</span>
+                    </div>
+                </div>
+            `).join('');
+            container.innerHTML = html;
+        }
+
+        function renderAlerts(alerts, backups) {
+            const container = document.getElementById('list-alerts');
+            let html = '';
+
+            // Backups first
+            html += backups.filter(b => b.status === 'pending').map(b => `
+            <div class="alert-box alert-critical">
+                <b>🆘 BACKUP NEEDED</b><br>
+                ${b.responder_name} needs ${b.request_type.toUpperCase()}<br>
+                <i>"${b.message || 'No message'}"</i>
+                <button class="btn-assign" style="background: var(--red)" onclick="dispatchBackup('${b.id}')">DISPATCH RESPONSE</button>
+            </div>
+        `).join('');
+
+            html += alerts.map(a => `
+            <div class="alert-box alert-${a.level}">
+                <b>${a.level.toUpperCase()}</b>: ${a.message}
+            </div>
+        `).join('');
+
+            container.innerHTML = html || '<div style="color:var(--muted); text-align:center; padding:20px;">No active alerts</div>';
+        }
+
+        function updateMap(sos, resp) {
+            // SOS Markers
+            sos.forEach(s => {
+                if (!s.lat) return;
+                const color = s.status === 'pending' ? (s.priority_score > 80 ? 'red' : 'orange') : 'gray';
+                if (markers.sos[s.sos_id]) {
+                    markers.sos[s.sos_id].setLatLng([s.lat, s.lon]).setStyle({ color });
+                } else {
+                    markers.sos[s.sos_id] = L.circle([s.lat, s.lon], { color, radius: 100, weight: 3, fillOpacity: 0.2 })
+                        .addTo(map).on('click', () => findMatches(s.sos_id, s.lat, s.lon))
+                        .bindTooltip(`SOS: ${s.emergency_type} (${s.priority_score} pts)`);
+                }
+            });
+
+            // Responder Markers
+            resp.forEach(r => {
+                if (!r.lat) return;
+                const color = r.status === 'available' ? 'cyan' : '#444';
+                if (markers.resp[r.id]) {
+                    markers.resp[r.id].setLatLng([r.lat, r.lon]).setStyle({ color });
+                } else {
+                    markers.resp[r.id] = L.circleMarker([r.lat, r.lon], { color, radius: 6, weight: 2, fillOpacity: 1 })
+                        .addTo(map).bindTooltip(`${r.name} (${r.status})`);
+                }
+            });
+        }
+
+        async function focusSOS(id, lat, lon) {
+            selectedSOS = id;
+            map.flyTo([lat, lon], 16);
+            renderSOS(lastData.sos); // Update active state
+        }
+
+        async function findMatches(sosId, lat, lon) {
+            selectedSOS = sosId;
+            const res = await fetch(`${API}/responders/nearby?lat=${lat}&lon=${lon}&radius_km=10`);
+            const matches = await res.json();
+
+            const hud = document.getElementById('assign-hud');
+            const container = document.getElementById('hud-candidates');
+            hud.style.display = 'block';
+
+            container.innerHTML = matches.map(m => `
+                <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 12px; margin-bottom: 8px; border: 1px solid ${m.special_instruction ? 'var(--orange)' : 'rgba(255,255,255,0.1)'};">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                        <b>${m.name}</b>
+                        <span style="color:var(--green)">${m.match_score} pts</span>
+                    </div>
+                    <div style="font-size:0.75rem; color:var(--muted); margin-bottom:4px;">
+                        Dist: ${m.distance_km}km • Trust: ${m.trust_level}% • ${m.type}
+                    </div>
+                    ${m.special_instruction ? `
+                        <div style="font-size:0.65rem; color:var(--orange); font-weight:800; background:rgba(255,159,0,0.1); padding:5px; border-radius:5px; margin-bottom:8px;">
+                            📜 ${m.special_instruction}
+                        </div>
+                    ` : ''}
+                    <button class="btn-assign" style="margin:0; font-size:0.75rem;" onclick="assign('${sosId}', '${m.id}')">DISPATCH TEAM</button>
+                </div>
+            `).join('') || '<div style="color:var(--muted)">No teams available in radius</div>';
+
+            renderSOS(lastData.sos); // Refresh UI state
+        }
+
+        async function assign(sosId, respId) {
+            const res = await fetch(`${API}/missions/create`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sos_id: sosId })
+            });
+            const mid = (await res.json()).mission_id;
+
+            const res2 = await fetch(`${API}/missions/${mid}/assign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ responder_id: respId })
+            });
+
+            if (res2.ok) {
+                hideHUD();
+                refresh();
+                alert("Dispatched!");
+            }
+        }
+
+        async function dispatchBackup(id) {
+            const res = await fetch(`${API}/missions/support-requests/${id}/dispatch`, { method: 'PUT' });
+            if (res.ok) {
+                alert("Dispatch center confirmed backup.");
+                refresh();
+            }
+        }
+
+        function hideHUD() { document.getElementById('assign-hud').style.display = 'none'; selectedSOS = null; }
+        function formatTime(ts) { return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+        function getIcon(type) { const icons = { boat: '🚤', medical: '🏥', volunteer: '🧑‍🚒', ambulance: '🚑', helicopter: '🚁', logistics: '🚛', fire: '🚒' }; return icons[type] || '🧑‍🚒'; }
+
+        function switchTab(id, el) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.list-container').forEach(l => l.style.display = 'none');
+            if (el) el.classList.add('active');
+            else if (event) event.currentTarget.classList.add('active');
+            document.getElementById('list-' + id).style.display = 'block';
+        }
+
+        function toggleTopo() {
+            if (activeLayer === 'dark') {
+                map.removeLayer(baseLayers.dark);
+                baseLayers.topo.addTo(map);
+                activeLayer = 'topo';
+                document.getElementById('topo-btn').textContent = '🛰️ DARK MAP';
+            } else {
+                map.removeLayer(baseLayers.topo);
+                baseLayers.dark.addTo(map);
+                activeLayer = 'dark';
+                document.getElementById('topo-btn').textContent = '🏔️ TOPO MAP';
+            }
+        }
+
+        function changeZone() {
+            const val = document.getElementById('zone-select').value;
+            if (val && DIST_COORDS[val]) {
+                map.flyTo(DIST_COORDS[val], 13);
+            }
+        }
+
+        init();
+    </script>
+
+</body>
+
+</html>

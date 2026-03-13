@@ -1,0 +1,414 @@
+/* SOS Page – Emergency-First Design */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    min-height: 100vh;
+    background: #0a0e1a;
+    font-family: 'Inter', system-ui, sans-serif;
+    color: #f1f5f9;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+/* ── Top Warning Bar ── */
+.warning-bar {
+    width: 100%;
+    background: linear-gradient(90deg, #b91c1c, #ef4444, #b91c1c);
+    background-size: 200% 100%;
+    animation: bar-slide 2s linear infinite;
+    text-align: center;
+    padding: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+
+@keyframes bar-slide {
+    0% {
+        background-position: 0%
+    }
+
+    100% {
+        background-position: 200%
+    }
+}
+
+/* ── SOS Container ── */
+.sos-container {
+    width: 100%;
+    max-width: 420px;
+    padding: 28px 24px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+}
+
+/* ── Header ── */
+.sos-header {
+    text-align: center;
+}
+
+.sos-header h1 {
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #ef4444;
+}
+
+.sos-header p {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+/* ── THE SOS BUTTON ── */
+.sos-btn-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sos-pulse-ring {
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    border: 3px solid rgba(239, 68, 68, 0.4);
+    animation: pulse-ring 1.8s ease-out infinite;
+}
+
+.sos-pulse-ring:nth-child(2) {
+    animation-delay: 0.6s;
+}
+
+.sos-pulse-ring:nth-child(3) {
+    animation-delay: 1.2s;
+}
+
+.sos-btn {
+    position: relative;
+    z-index: 3;
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #ff6b6b, #dc2626, #991b1b);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 40px rgba(239, 68, 68, 0.5), inset 0 2px 8px rgba(255, 255, 255, 0.2);
+    transition: transform 0.15s, box-shadow 0.15s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.sos-btn:active {
+    transform: scale(0.94);
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+}
+
+.sos-btn .sos-icon {
+    font-size: 40px;
+    line-height: 1;
+}
+
+.sos-btn .sos-text {
+    font-size: 28px;
+    font-weight: 900;
+    color: white;
+    letter-spacing: 3px;
+    margin-top: 2px;
+}
+
+.sos-btn .sos-sub {
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.75);
+    letter-spacing: 1.5px;
+    margin-top: 4px;
+}
+
+@keyframes pulse-ring {
+    0% {
+        transform: scale(0.7);
+        opacity: 0.8;
+    }
+
+    100% {
+        transform: scale(1.4);
+        opacity: 0;
+    }
+}
+
+/* ── GPS Status ── */
+.gps-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.25);
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #22c55e;
+    width: 100%;
+}
+
+.gps-status.searching {
+    color: #f59e0b;
+    border-color: rgba(245, 158, 11, 0.25);
+    background: rgba(245, 158, 11, 0.08);
+}
+
+.gps-status.error {
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.25);
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.gps-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: pulse-dot 1.5s infinite;
+}
+
+@keyframes pulse-dot {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1)
+    }
+
+    50% {
+        opacity: 0.4;
+        transform: scale(0.7)
+    }
+}
+
+/* ── Section Labels ── */
+.section-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+    padding-left: 2px;
+}
+
+/* ── Emergency Type Grid ── */
+.emergency-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    width: 100%;
+}
+
+.em-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 16px 8px;
+    background: #111827;
+    border: 2px solid #2a3650;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: #94a3b8;
+    transition: all 0.2s;
+    min-height: 80px;
+}
+
+.em-btn .em-icon {
+    font-size: 28px;
+}
+
+.em-btn:hover {
+    background: #1a2235;
+    border-color: #3b4f6e;
+    color: #f1f5f9;
+}
+
+.em-btn.selected {
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+/* ── People Count ── */
+.count-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    width: 100%;
+}
+
+.count-btn {
+    padding: 14px 8px;
+    background: #111827;
+    border: 2px solid #2a3650;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 22px;
+    font-weight: 800;
+    color: #f1f5f9;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.count-btn:hover {
+    border-color: #3b4f6e;
+}
+
+.count-btn.selected {
+    border-color: #3b82f6;
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+}
+
+/* ── Phone Input ── */
+.phone-input {
+    width: 100%;
+    background: #111827;
+    border: 2px solid #2a3650;
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 18px;
+    font-weight: 600;
+    color: #f1f5f9;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+    letter-spacing: 1px;
+}
+
+.phone-input:focus {
+    border-color: #3b82f6;
+}
+
+/* ── Submit Button ── */
+.submit-sos-btn {
+    width: 100%;
+    padding: 18px;
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 800;
+    color: white;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+}
+
+.submit-sos-btn:hover {
+    background: linear-gradient(135deg, #1d4ed8, #2563eb);
+    transform: translateY(-1px);
+}
+
+.submit-sos-btn:active {
+    transform: translateY(0);
+}
+
+.submit-sos-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* ── Success Screen ── */
+.success-screen {
+    position: fixed;
+    inset: 0;
+    background: #0a0e1a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    text-align: center;
+    padding: 40px;
+    animation: fade-in 0.4s ease;
+}
+
+.success-icon {
+    font-size: 72px;
+    animation: bounce 0.6s ease;
+}
+
+.success-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: #22c55e;
+}
+
+.success-msg {
+    font-size: 15px;
+    color: #94a3b8;
+    max-width: 300px;
+    line-height: 1.6;
+}
+
+.success-sos-id {
+    font-size: 12px;
+    color: #64748b;
+    background: #111827;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-family: monospace;
+}
+
+.success-back {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 14px 28px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 8px;
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0
+    }
+
+    to {
+        opacity: 1
+    }
+}
+
+@keyframes bounce {
+
+    0%,
+    100% {
+        transform: scale(1)
+    }
+
+    50% {
+        transform: scale(1.15)
+    }
+}

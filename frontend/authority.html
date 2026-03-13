@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authority Dashboard v3.0 – State Monitoring</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --red: #ff2244;
+            --orange: #ff8800;
+            --green: #00cc66;
+            --blue: #0088ff;
+            --purple: #aa44ff;
+            --yellow: #ffcc00;
+            --bg: #06060e;
+            --card: #10101a;
+            --card2: #18182a;
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #f0f0f0;
+            --muted: #777;
+        }
+
+        html,
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* ── Header ── */
+        .hdr {
+            background: linear-gradient(135deg, #0a0a14, #0f0f1e);
+            border-bottom: 1px solid rgba(100, 100, 255, 0.2);
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .hdr-flag {
+            font-size: 28px;
+        }
+
+        .hdr-text h1 {
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--text);
+        }
+
+        .hdr-text p {
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .hdr-right {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .live-pill {
+            padding: 5px 12px;
+            background: rgba(255, 34, 68, 0.15);
+            border: 1px solid rgba(255, 34, 68, 0.35);
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--red);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .live-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--red);
+            animation: blink 1.2s ease infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: 0.2
+            }
+        }
+
+        #last-updated {
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px 16px 60px;
+        }
+
+        /* ── State KPI Row ── */
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .kpi-card {
+            background: var(--card);
+            border: 1.5px solid var(--border);
+            border-radius: 14px;
+            padding: 16px 18px;
+            border-top: 3px solid var(--blue);
+        }
+
+        .kpi-card .num {
+            font-size: 28px;
+            font-weight: 900;
+        }
+
+        .kpi-card .lbl {
+            font-size: 11px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-top: 2px;
+        }
+
+        .kpi-card.red {
+            border-top-color: var(--red);
+        }
+
+        .kpi-card.red .num {
+            color: var(--red);
+        }
+
+        .kpi-card.orange {
+            border-top-color: var(--orange);
+        }
+
+        .kpi-card.orange .num {
+            color: var(--orange);
+        }
+
+        .kpi-card.green {
+            border-top-color: var(--green);
+        }
+
+        .kpi-card.green .num {
+            color: var(--green);
+        }
+
+        .kpi-card.blue {
+            border-top-color: var(--blue);
+        }
+
+        .kpi-card.blue .num {
+            color: var(--blue);
+        }
+
+        .kpi-card.purple {
+            border-top-color: var(--purple);
+        }
+
+        .kpi-card.purple .num {
+            color: var(--purple);
+        }
+
+        /* ── Filter Bar ── */
+        .filter-bar {
+            background: var(--card);
+            border: 1.5px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 18px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .filter-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            white-space: nowrap;
+        }
+
+        .filter-select {
+            background: var(--card2);
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+            font-family: inherit;
+            cursor: pointer;
+            min-width: 220px;
+            transition: border-color 0.2s;
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: rgba(0, 136, 255, 0.5);
+        }
+
+        .filter-btn {
+            padding: 10px 18px;
+            background: rgba(0, 136, 255, 0.15);
+            border: 1px solid rgba(0, 136, 255, 0.4);
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #44aaff;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .filter-btn:hover {
+            background: rgba(0, 136, 255, 0.25);
+        }
+
+        .severity-filter {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .sev-chip {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            border: 1.5px solid var(--border);
+            background: var(--card2);
+            transition: all 0.15s;
+        }
+
+        .sev-chip.critical {
+            color: var(--red);
+            border-color: rgba(255, 34, 68, 0.4);
+        }
+
+        .sev-chip.active {
+            color: var(--orange);
+            border-color: rgba(255, 136, 0, 0.4);
+        }
+
+        .sev-chip.standby {
+            color: var(--blue);
+            border-color: rgba(0, 136, 255, 0.4);
+        }
+
+        .sev-chip.clear {
+            color: var(--green);
+            border-color: rgba(0, 204, 102, 0.4);
+        }
+
+        .sev-chip.selected {
+            filter: brightness(1.4);
+        }
+
+        /* ── Main Grid ── */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        /* Map */
+        .map-wrap {
+            position: relative;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1.5px solid var(--border);
+            height: 460px;
+        }
+
+        #tn-map {
+            height: 100%;
+        }
+
+        .map-overlay {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 500;
+            background: rgba(10, 10, 20, 0.9);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 11px;
+        }
+
+        .map-overlay .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        /* Charts panel */
+        .charts-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .chart-card {
+            background: var(--card);
+            border: 1.5px solid var(--border);
+            border-radius: 14px;
+            padding: 16px;
+            flex: 1;
+        }
+
+        .chart-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 12px;
+        }
+
+        /* ── District Cards Grid ── */
+        .sec-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+        }
+
+        .sec-title {
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .count-badge {
+            background: var(--card2);
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .district-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 12px;
+        }
+
+        .district-card {
+            background: var(--card);
+            border: 1.5px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 16px;
+            transition: border-color 0.2s, transform 0.15s;
+            cursor: default;
+            border-left: 4px solid var(--border);
+        }
+
+        .district-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .district-card.critical {
+            border-left-color: var(--red);
+        }
+
+        .district-card.active {
+            border-left-color: var(--orange);
+        }
+
+        .district-card.standby {
+            border-left-color: var(--blue);
+        }
+
+        .district-card.clear {
+            border-left-color: var(--green);
+        }
+
+        .dc-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .dc-name {
+            font-size: 14px;
+            font-weight: 800;
+        }
+
+        .sev-badge {
+            padding: 3px 10px;
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .sev-badge.critical {
+            background: rgba(255, 34, 68, 0.2);
+            color: #ff6680;
+        }
+
+        .sev-badge.active {
+            background: rgba(255, 136, 0, 0.2);
+            color: var(--orange);
+        }
+
+        .sev-badge.standby {
+            background: rgba(0, 136, 255, 0.2);
+            color: #44aaff;
+        }
+
+        .sev-badge.clear {
+            background: rgba(0, 204, 102, 0.15);
+            color: var(--green);
+        }
+
+        .dc-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
+        }
+
+        .dc-stat {
+            text-align: center;
+        }
+
+        .dc-stat .n {
+            font-size: 16px;
+            font-weight: 800;
+        }
+
+        .dc-stat .l {
+            font-size: 10px;
+            color: var(--muted);
+        }
+
+        .dc-stat.resp .n {
+            color: var(--blue);
+        }
+
+        .dc-stat.miss .n {
+            color: var(--orange);
+        }
+
+        .dc-stat.shel .n {
+            color: var(--green);
+        }
+
+        .fill-bar {
+            height: 4px;
+            background: var(--card2);
+            border-radius: 2px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .fill-fill {
+            height: 100%;
+            border-radius: 2px;
+            background: var(--green);
+        }
+
+        .fill-label {
+            font-size: 10px;
+            color: var(--muted);
+            margin-top: 3px;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 50px;
+            color: var(--muted);
+            grid-column: 1/-1;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ── Header ── -->
+    <header class="hdr">
+        <div class="hdr-flag">🏛️</div>
+        <div class="hdr-text">
+            <h1>TAMIL NADU DISASTER AUTHORITY – STATE MONITORING</h1>
+            <p>Real-time overview of all 38 districts</p>
+        </div>
+
+        <!-- System Navigation -->
+        <div style="display: flex; gap: 8px; margin-left: 30px;">
+            <a href="sos.html"
+                style="padding: 6px 12px; font-size: 11px; border-radius: 6px; background: rgba(255,59,59,0.1); color: #ff9999; text-decoration: none; border: 1px solid rgba(255,59,59,0.2);">🆘
+                SOS</a>
+            <a href="responders_register.html"
+                style="padding: 6px 12px; font-size: 11px; border-radius: 6px; background: rgba(0,255,136,0.1); color: #99ffcc; text-decoration: none; border: 1px solid rgba(0,255,136,0.2);">🤝
+                VOLUNTEER</a>
+            <a href="commander.html"
+                style="padding: 6px 12px; font-size: 11px; border-radius: 6px; background: rgba(0,136,255,0.1); color: #99ccff; text-decoration: none; border: 1px solid rgba(0,136,255,0.2);">⚡
+                TEAM HUD</a>
+        </div>
+
+        <div class="hdr-right">
+            <div id="last-updated">–</div>
+            <div class="live-pill"><span class="live-dot"></span> LIVE 10s</div>
+        </div>
+    </header>
+
+    <div class="content">
+        <!-- KPI Row -->
+        <div class="kpi-row">
+            <div class="kpi-card red">
+                <div class="num" id="k-sos">–</div>
+                <div class="lbl">Total SOS</div>
+            </div>
+            <div class="kpi-card orange">
+                <div class="num" id="k-active">–</div>
+                <div class="lbl">Active Incidents</div>
+            </div>
+            <div class="kpi-card green">
+                <div class="num" id="k-rescued">–</div>
+                <div class="lbl">Rescued</div>
+            </div>
+            <div class="kpi-card blue">
+                <div class="num" id="k-resp">–</div>
+                <div class="lbl">Responders</div>
+            </div>
+            <div class="kpi-card purple">
+                <div class="num" id="k-success">–%</div>
+                <div class="lbl">Success Rate</div>
+            </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+            <span class="filter-label">🔍 District Filter:</span>
+            <select class="filter-select" id="district-select" onchange="onDistrictChange()">
+                <option value="">All 38 Districts</option>
+            </select>
+            <div class="severity-filter">
+                <span class="filter-label">Severity:</span>
+                <div class="sev-chip critical" onclick="toggleSev(this,'critical')">🔴 Critical</div>
+                <div class="sev-chip active" onclick="toggleSev(this,'active')">🟠 Active</div>
+                <div class="sev-chip standby" onclick="toggleSev(this,'standby')">🔵 Standby</div>
+                <div class="sev-chip clear" onclick="toggleSev(this,'clear')">🟢 Clear</div>
+            </div>
+            <button class="filter-btn" onclick="resetFilters()">↺ Reset</button>
+        </div>
+
+        <!-- Map + Charts -->
+        <div class="main-grid">
+            <div class="map-wrap">
+                <div id="tn-map"></div>
+                <div class="map-overlay">
+                    <div class="legend-item">
+                        <div class="legend-dot" style="background:#ff2244"></div> Critical
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-dot" style="background:#ff8800"></div> Active
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-dot" style="background:#0088ff"></div> Standby
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-dot" style="background:#00cc66"></div> Clear
+                    </div>
+                </div>
+            </div>
+            <div class="charts-panel">
+                <div class="chart-card" style="height:220px">
+                    <div class="chart-title">Incident Status Breakdown</div>
+                    <canvas id="status-chart"></canvas>
+                </div>
+                <!-- Timeline from strategic.html -->
+                <div class="chart-card" style="height:220px; overflow-y:auto;">
+                    <div class="chart-title">📅 RECENT LOGS</div>
+                    <div id="timeline-panel" style="font-size:11px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Regional Data from strategic.html -->
+        <div class="sec-header" style="margin-top:24px;">
+            <div class="sec-title">📍 Regional Resource Summary</div>
+        </div>
+        <div class="district-grid" style="grid-template-columns: 1fr; margin-bottom: 24px;">
+            <div class="chart-card">
+                <table style="width:100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+                    <thead>
+                        <tr style="color:var(--muted); border-bottom: 1px solid var(--border);">
+                            <th style="padding:10px;">District</th>
+                            <th>SOS (Open)</th>
+                            <th>Responders</th>
+                            <th>Utilization</th>
+                            <th>Missions</th>
+                            <th>Shelter Use</th>
+                        </tr>
+                    </thead>
+                    <tbody id="region-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- District Cards -->
+        <div class="sec-header">
+            <div class="sec-title">District Overview</div>
+            <div class="count-badge" id="showing-count">Showing all</div>
+        </div>
+        <div class="district-grid" id="district-grid">
+            <div class="empty">Loading districts...</div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const API = 'http://localhost:8000/api';
+        const TN_DISTRICTS = ["Chennai", "Coimbatore", "Madurai", "Tiruchirappalli", "Salem", "Tirunelveli", "Vellore", "Erode", "Thoothukudi", "Thanjavur", "Dindigul", "Ranipet", "Karur", "Namakkal", "Krishnagiri", "Dharmapuri", "Villupuram", "Cuddalore", "Nagapattinam", "Tiruvarur", "Mayiladuthurai", "Ariyalur", "Perambalur", "Pudukkottai", "Sivaganga", "Virudhunagar", "Ramanathapuram", "Theni", "Nilgiris", "Tiruppur", "Kanchipuram", "Chengalpattu", "Tiruvallur", "Kallakurichi", "Tirupattur", "Tenkasi", "Tiruvannamalai"];
+
+        // Approximate TN district centroids for map markers
+        const DIST_COORDS = {
+            "Chennai": [13.0827, 80.2707], "Coimbatore": [11.0168, 76.9558], "Madurai": [9.9252, 78.1198],
+            "Tiruchirappalli": [10.7905, 78.7047], "Salem": [11.6643, 78.1460], "Tirunelveli": [8.7139, 77.7567],
+            "Vellore": [12.9165, 79.1325], "Erode": [11.3410, 77.7172], "Thoothukudi": [8.7642, 78.1348],
+            "Thanjavur": [10.7870, 79.1378], "Dindigul": [10.3673, 77.9803], "Ranipet": [12.9327, 79.3320],
+            "Karur": [10.9601, 78.0766], "Namakkal": [11.2189, 78.1674], "Krishnagiri": [12.5186, 78.2137],
+            "Dharmapuri": [12.1278, 78.1574], "Villupuram": [11.9397, 79.4917], "Cuddalore": [11.7447, 79.7689],
+            "Nagapattinam": [10.7654, 79.8428], "Tiruvarur": [10.7718, 79.6368], "Mayiladuthurai": [11.1028, 79.6510],
+            "Ariyalur": [11.1382, 79.0778], "Perambalur": [11.2340, 78.8796], "Pudukkottai": [10.3797, 78.8206],
+            "Sivaganga": [9.8473, 78.4872], "Virudhunagar": [9.5850, 77.9624], "Ramanathapuram": [9.3639, 78.8395],
+            "Theni": [10.0106, 77.4772], "Nilgiris": [11.4916, 76.7337], "Tiruppur": [11.1085, 77.3411],
+            "Kanchipuram": [12.8324, 79.7036], "Chengalpattu": [12.6926, 80.0086], "Tiruvallur": [13.1434, 79.9089],
+            "Kallakurichi": [11.7367, 78.9584], "Tirupattur": [12.4965, 78.5718], "Tenkasi": [8.9609, 77.3150],
+            "Tiruvannamalai": [12.2269, 79.0747], "Kanyakumari": [8.0883, 77.5385]
+        };
+        // Severity colors
+        const SEV_COLOR = { critical: '#ff2244', active: '#ff8800', standby: '#0088ff', clear: '#00cc66' };
+
+        // Populate district dropdown from backend
+        async function fetchDistrictList() {
+            try {
+                const res = await fetch(`${API}/strategic/districts/list`);
+                const list = await res.json();
+                const sel = document.getElementById('district-select');
+                sel.innerHTML = '<option value="">All 38 Districts</option>';
+                list.sort().forEach(d => {
+                    const o = document.createElement('option');
+                    o.value = d; o.textContent = d;
+                    sel.appendChild(o);
+                });
+            } catch (e) { console.error("Failed to fetch districts", e); }
+        }
+        fetchDistrictList();
+
+        // ── Map ──
+        const tnMap = L.map('tn-map', { zoomControl: true }).setView([10.8, 78.5], 7);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(tnMap);
+        let markerLayer = L.layerGroup().addTo(tnMap);
+
+        function mkIcon(color, size = 16) {
+            return L.divIcon({ className: '', html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2.5px solid rgba(255,255,255,0.7);box-shadow:0 0 12px ${color}88"></div>`, iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
+        }
+
+        // ── Charts ──
+        const statusChart = new Chart(document.getElementById('status-chart'), {
+            type: 'doughnut',
+            data: { labels: ['Rescued', 'Active', 'Pending', 'Closed'], datasets: [{ data: [0, 0, 0, 0], backgroundColor: ['#00cc66', '#0088ff', '#ff2244', '#444'], borderWidth: 0, hoverOffset: 4 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#aaa', font: { size: 11 } } } } }
+        });
+        const respChart = new Chart(document.getElementById('resp-chart'), {
+            type: 'bar',
+            data: { labels: [], datasets: [{ label: 'Available', data: [], backgroundColor: '#0088ff' }, { label: 'Busy', data: [], backgroundColor: '#ff8800' }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#aaa', font: { size: 10 } } } }, scales: { x: { ticks: { color: '#888', font: { size: 9 } } }, y: { ticks: { color: '#888' } } } }
+        });
+
+        // ── Filters ──
+        let sevFilters = new Set();
+        let districtData = [];
+
+        function toggleSev(el, sev) {
+            el.classList.toggle('selected');
+            if (sevFilters.has(sev)) sevFilters.delete(sev);
+            else sevFilters.add(sev);
+            renderDistricts(districtData);
+        }
+        function resetFilters() {
+            document.getElementById('district-select').value = '';
+            document.querySelectorAll('.sev-chip').forEach(c => c.classList.remove('selected'));
+            sevFilters.clear();
+            loadDistricts();
+        }
+        function onDistrictChange() { loadDistricts(); }
+
+        // ── Data ──
+        async function refresh() {
+            const [stats, perf] = await Promise.all([
+                fetch(`${API}/strategic/stats`).then(r => r.json()).catch(() => ({})),
+                fetch(`${API}/strategic/performance`).then(r => r.json()).catch(() => ({})),
+            ]);
+            document.getElementById('k-sos').textContent = stats.total_sos ?? '0';
+            document.getElementById('k-active').textContent = stats.active_sos ?? '0';
+            document.getElementById('k-rescued').textContent = stats.rescued ?? '0';
+            document.getElementById('k-resp').textContent = stats.responders_available ?? '0';
+            document.getElementById('k-success').textContent = (stats.success_rate_pct ?? '0') + '%';
+
+            // Update status chart
+            const r = stats;
+            if (r.total_sos) {
+                statusChart.data.datasets[0].data = [r.rescued || 0, r.active_sos || 0, r.pending || 0, (r.total_sos - r.active_sos - r.rescued) || 0];
+                statusChart.update();
+            }
+            document.getElementById('last-updated').textContent = '⏱ ' + new Date().toLocaleTimeString();
+
+            loadDistricts();
+        }
+
+        async function loadDistricts() {
+            const districtFilter = document.getElementById('district-select').value;
+            const url = districtFilter
+                ? `${API}/strategic/districts?district=${encodeURIComponent(districtFilter)}`
+                : `${API}/strategic/districts`;
+            const data = await fetch(url).then(r => r.json()).catch(() => []);
+            districtData = data;
+            renderDistricts(data);
+            updateMap(data);
+            updateRespChart(data);
+            renderRegionTable(data);
+            loadTimeline();
+        }
+
+        function renderRegionTable(data) {
+            const tbody = document.getElementById('region-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = data.filter(d => d.total_responders > 0 || d.active_missions > 0 || d.open_sos > 0)
+                .sort((a, b) => b.open_sos - a.open_sos || b.active_missions - a.active_missions).map(d => `
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.03); ${d.critical_shortage ? 'background:rgba(255,59,59,0.05);' : ''}">
+                    <td style="padding:10px; font-weight:800;">
+                        ${d.district} ${d.critical_shortage ? '⚠️' : ''}
+                    </td>
+                    <td style="color:${d.open_sos > 0 ? 'var(--orange)' : 'inherit'}">${d.open_sos}</td>
+                    <td>${d.total_responders}</td>
+                    <td style="color:${d.utilization_pct > 80 ? 'var(--red)' : 'inherit'}">${d.utilization_pct}%</td>
+                    <td>${d.active_missions}</td>
+                    <td>${d.shelter_fill_pct}%</td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadTimeline() {
+            try {
+                const events = await fetch(`${API}/strategic/timeline`).then(r => r.json());
+                const panel = document.getElementById("timeline-panel");
+                if (!panel) return;
+                panel.innerHTML = events.map(e => `
+                    <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.03); display:flex; gap:8px;">
+                        <span style="opacity:0.6;">${new Date(e.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span><b>${e.event_type}</b>: ${e.emergency_type || e.type || ''}</span>
+                    </div>
+                `).join('') || '<div style="color:var(--muted); font-style:italic; padding-top:10px;">No recent activity</div>';
+            } catch (e) { }
+        }
+
+        function renderDistricts(data) {
+            const grid = document.getElementById('district-grid');
+            let filtered = data;
+            if (sevFilters.size > 0) filtered = data.filter(d => sevFilters.has(d.severity));
+            const districtFilter = document.getElementById('district-select').value;
+            if (districtFilter) filtered = filtered.filter(d => d.district === districtFilter);
+
+            // Sort: Critical first, then by total responders
+            filtered.sort((a, b) => {
+                const sevOrder = { critical: 0, active: 1, standby: 2, clear: 3 };
+                if (sevOrder[a.severity] !== sevOrder[b.severity]) return sevOrder[a.severity] - sevOrder[b.severity];
+                return b.total_responders - a.total_responders;
+            });
+
+            document.getElementById('showing-count').textContent = `Showing ${filtered.length} district${filtered.length !== 1 ? 's' : ''}`;
+
+            if (!filtered.length) { grid.innerHTML = '<div class="empty">No districts match the current filter.</div>'; return; }
+
+            grid.innerHTML = filtered.map(d => `
+    <div class="district-card ${d.severity}">
+      <div class="dc-header">
+        <div class="dc-name">📍 ${d.district}</div>
+        <span class="sev-badge ${d.severity}">${d.severity.toUpperCase()}</span>
+      </div>
+      <div class="dc-stats">
+        <div class="dc-stat resp"><div class="n">${d.total_responders}</div><div class="l">Total Resp</div></div>
+        <div class="dc-stat miss"><div class="n">${d.open_sos}</div><div class="l">Open SOS</div></div>
+        <div class="dc-stat shel"><div class="n">${d.utilization_pct}%</div><div class="l">Utilization</div></div>
+      </div>
+      <div style="margin-top:10px; font-size:11px; color:var(--muted); display:flex; justify-content:space-between;">
+        <span>Demand Rate: <b>${d.sos_intensity}</b></span>
+        <span>Missions: <b>${d.active_missions}</b></span>
+      </div>
+      ${d.shelter_capacity > 0 ? `
+        <div class="fill-bar" style="margin-top:10px;"><div class="fill-fill" style="width:${d.shelter_fill_pct}%;background:${d.shelter_fill_pct > 90 ? 'var(--red)' : d.shelter_fill_pct > 70 ? 'var(--orange)' : 'var(--green)'}"></div></div>
+        <div class="fill-label">Shelter: ${d.shelter_occupancy}/${d.shelter_capacity} (${d.shelter_fill_pct}% full)</div>
+      ` : ''}
+      ${d.critical_shortage ? `<div style="margin-top:8px; padding:6px; border-radius:6px; background:rgba(255,59,59,0.1); color:var(--red); font-size:10px; font-weight:800; border:1px solid rgba(255,59,59,0.2); text-align:center;">⚠️ CRITICAL RESOURCE GAP</div>` : ''}
+    </div>
+  `).join('');
+        }
+
+        function updateMap(data) {
+            markerLayer.clearLayers();
+            data.forEach(d => {
+                const coords = DIST_COORDS[d.district];
+                if (!coords) return;
+                const color = SEV_COLOR[d.severity] || '#555';
+                const size = d.critical_shortage ? 24 : (d.total_responders > 0 ? 18 : 12);
+                const marker = L.marker(coords, { icon: mkIcon(color, size) })
+                    .bindPopup(`<b>${d.district}</b><br>
+                        Status: <b style="color:${color}">${d.severity.toUpperCase()}</b><br>
+                        🆘 Open SOS: <b>${d.open_sos}</b><br>
+                        👥 ${d.total_responders} Responders (${d.utilization_pct}% Busy)<br>
+                        🎯 ${d.active_missions} Missions<br>
+                        🏠 ${d.shelter_fill_pct}% Shelter Fill
+                        ${d.critical_shortage ? '<br><b style="color:red">⚠️ CRITICAL RESOURCE SHORTAGE</b>' : ''}
+                    `)
+                    .addTo(markerLayer);
+
+                if (d.critical_shortage) {
+                    L.circle(coords, { radius: 5000, color: 'red', weight: 1, fillOpacity: 0.1 }).addTo(markerLayer);
+                }
+            });
+        }
+
+        function updateRespChart(data) {
+            const top = data.filter(d => d.total_responders > 0).sort((a, b) => b.total_responders - a.total_responders).slice(0, 8);
+            respChart.data.labels = top.map(d => d.district);
+            respChart.data.datasets[0].data = top.map(d => d.available_responders);
+            respChart.data.datasets[1].data = top.map(d => d.busy_responders);
+            respChart.update();
+        }
+
+        // Init
+        refresh();
+        setInterval(refresh, 10000);
+    </script>
+</body>
+
+</html>
