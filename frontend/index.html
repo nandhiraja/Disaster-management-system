@@ -285,6 +285,7 @@
         </div>
     </div>
 
+    <script src="js/api.js"></script>
     <script>
         function setMode(mode) {
             localStorage.setItem('dms_mode', mode);
@@ -296,7 +297,7 @@
             if (!confirmed) return;
 
             try {
-                const res = await fetch('http://localhost:8000/api/admin/reset-showcase', {
+                const res = await fetch(`${API}/admin/reset-showcase`, {
                     method: 'POST'
                 });
                 if (res.ok) {

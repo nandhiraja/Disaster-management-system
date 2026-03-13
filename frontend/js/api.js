@@ -1,6 +1,6 @@
-/* Shared API client – all pages import this */
-const API ="https://disaster-management-system-yy3e.onrender.com/api"; // Replace with your Render URL
-//  api = "http://localhost:8000/api";
+const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? "http://localhost:8000/api"
+    : "https://disaster-management-system-yy3e.onrender.com/api"; 
 
 async function apiFetch(path, options = {}) {
   try {
@@ -38,30 +38,30 @@ function showToast(msg, type = "info") {
 /* Status badge colour mapper */
 function statusBadge(status) {
   const map = {
-    pending:         "badge-red",
-    assigned:        "badge-blue",
-    in_progress:     "badge-amber",
-    rescued:         "badge-green",
-    closed:          "badge-gray",
-    available:       "badge-green",
-    busy:            "badge-amber",
-    offline:         "badge-gray",
-    created:         "badge-gray",
-    en_route:        "badge-blue",
-    on_site:         "badge-purple",
+    pending: "badge-red",
+    assigned: "badge-blue",
+    in_progress: "badge-amber",
+    rescued: "badge-green",
+    closed: "badge-gray",
+    available: "badge-green",
+    busy: "badge-amber",
+    offline: "badge-gray",
+    created: "badge-gray",
+    en_route: "badge-blue",
+    on_site: "badge-purple",
     rescue_in_progress: "badge-amber",
-    completed:       "badge-green",
-    cancelled:       "badge-red",
-    medical:         "badge-red",
-    flood:           "badge-blue",
-    trapped:         "badge-amber",
-    elderly:         "badge-purple",
-    unknown:         "badge-gray",
-    boat:            "badge-blue",
-    ambulance:       "badge-red",
-    volunteer:       "badge-green",
-    helicopter:      "badge-purple",
-    logistics:       "badge-orange",
+    completed: "badge-green",
+    cancelled: "badge-red",
+    medical: "badge-red",
+    flood: "badge-blue",
+    trapped: "badge-amber",
+    elderly: "badge-purple",
+    unknown: "badge-gray",
+    boat: "badge-blue",
+    ambulance: "badge-red",
+    volunteer: "badge-green",
+    helicopter: "badge-purple",
+    logistics: "badge-orange",
   };
   const cls = map[status] || "badge-gray";
   return `<span class="badge ${cls}">${status?.replace(/_/g, " ")}</span>`;
@@ -73,7 +73,7 @@ function fmtTime(ts) {
   try {
     const d = new Date(ts + "Z");
     return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) + " " +
-           d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+      d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
   } catch { return ts; }
 }
 
