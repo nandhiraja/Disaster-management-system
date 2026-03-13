@@ -569,6 +569,37 @@
             </div>
         </div>
 
+        <!-- District Drill-down Card -->
+        <div id="district-insight" style="display: none; margin-bottom: 24px;">
+            <div class="kpi-card" style="border-top-color: var(--accent); display: block; height: auto;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+                    <div>
+                        <h2 id="insight-name" style="font-size: 24px; font-weight: 800; color: var(--accent);">District Name</h2>
+                        <p id="insight-severity" style="font-size: 12px; font-weight: 700; text-transform: uppercase;">SEVERITY: CLEAR</p>
+                    </div>
+                    <button onclick="document.getElementById('district-insight').style.display='none'" style="background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 5px 12px; border-radius: 8px; cursor: pointer;">✕ CLOSE</button>
+                </div>
+                <div class="dc-stats" style="grid-template-columns: repeat(4, 1fr); gap: 20px;">
+                    <div class="dc-stat">
+                        <div class="n" id="insight-sos">0</div>
+                        <div class="lbl">OPEN SOS</div>
+                    </div>
+                    <div class="dc-stat">
+                        <div class="n" id="insight-resp">0</div>
+                        <div class="lbl">TOTAL RESPONDERS</div>
+                    </div>
+                    <div class="dc-stat">
+                        <div class="n" id="insight-miss">0</div>
+                        <div class="lbl">ACTIVE MISSIONS</div>
+                    </div>
+                    <div class="dc-stat">
+                        <div class="n" id="insight-shelter">0%</div>
+                        <div class="lbl">SHELTER LOAD</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Filter Bar -->
         <div class="filter-bar">
             <span class="filter-label">🔍 District Filter:</span>
@@ -646,6 +677,13 @@
         </div>
         <div class="district-grid" id="district-grid">
             <div class="empty">Loading districts...</div>
+        </div>
+        
+        <!-- Location Access Pro-tip (Technical Fix 4) -->
+        <div id="protip-location" style="display: none; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: var(--card2); border: 2px solid var(--accent); padding: 20px; border-radius: 20px; z-index: 3000; box-shadow: 0 10px 40px rgba(0,0,0,0.8); max-width: 500px; text-align: center;">
+             <h3 style="margin-bottom: 10px;">💡 Pro Tip: Location Access</h3>
+             <p style="font-size: 13px; color: var(--muted); margin-bottom: 15px;">It looks like you're accessing this file directly via <code>file://</code>. Browsers often ask for permission repeatedly in this mode. For a smoother experience, host this project using a local server (e.g., <code>python -m http.server</code>).</p>
+             <button onclick="document.getElementById('protip-location').style.display='none'" style="background: var(--accent); border: none; padding: 8px 20px; border-radius: 10px; color: white; font-weight: 800; cursor: pointer;">GOT IT</button>
         </div>
     </div>
 
@@ -725,8 +763,34 @@
             document.querySelectorAll('.sev-chip').forEach(c => c.classList.remove('selected'));
             sevFilters.clear();
             loadDistricts();
+            document.getElementById('district-insight').style.display = 'none';
         }
-        function onDistrictChange() { loadDistricts(); }
+        function onDistrictChange() { 
+            const val = document.getElementById('district-select').value;
+            if (val) {
+                const district = districtData.find(d => d.district === val);
+                if (district) showDrillDown(district);
+            } else {
+                document.getElementById('district-insight').style.display = 'none';
+            }
+            loadDistricts(); 
+        }
+
+        function showDrillDown(d) {
+            const insight = document.getElementById('district-insight');
+            insight.style.display = 'block';
+            document.getElementById('insight-name').textContent = d.district;
+            document.getElementById('insight-severity').textContent = `SEVERITY: ${d.severity.toUpperCase()}`;
+            document.getElementById('insight-severity').style.color = SEV_COLOR[d.severity];
+            document.getElementById('insight-sos').textContent = d.open_sos;
+            document.getElementById('insight-resp').textContent = d.total_responders;
+            document.getElementById('insight-miss').textContent = d.active_missions;
+            document.getElementById('insight-shelter').textContent = d.shelter_fill_pct + '%';
+            
+            if (DIST_COORDS[d.district]) {
+                tnMap.flyTo(DIST_COORDS[d.district], 10);
+            }
+        }
 
         // ── Data ──
         async function refresh() {
@@ -760,9 +824,14 @@
             districtData = data;
             renderDistricts(data);
             updateMap(data);
-            updateRespChart(data);
+            // updateRespChart(data); // Removed duplicate chart update if redundant
             renderRegionTable(data);
             loadTimeline();
+
+            // Check for file protocol pro-tip
+            if (window.location.protocol === 'file:') {
+                 document.getElementById('protip-location').style.display = 'block';
+            }
         }
 
         function renderRegionTable(data) {
@@ -795,6 +864,27 @@
                     </div>
                 `).join('') || '<div style="color:var(--muted); font-style:italic; padding-top:10px;">No recent activity</div>';
             } catch (e) { }
+        }
+
+        function updateMap(data) {
+            markerLayer.clearLayers();
+            data.forEach(d => {
+                const coord = DIST_COORDS[d.district];
+                if (!coord) return;
+                
+                // NEW: Hotspot logic - larger radius if many open SOS
+                const baseSize = 10;
+                const size = baseSize + (d.open_sos * 5);
+                const color = SEV_COLOR[d.severity];
+                
+                L.circleMarker(coord, {
+                    radius: size / 2,
+                    color: color,
+                    weight: 3,
+                    fillColor: color,
+                    fillOpacity: 0.4
+                }).addTo(markerLayer).bindTooltip(`<b>${d.district}</b><br>SOS: ${d.open_sos}<br>Responders: ${d.available_responders}/${d.total_responders}`).on('click', () => showDrillDown(d));
+            });
         }
 
         function renderDistricts(data) {
