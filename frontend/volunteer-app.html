@@ -875,13 +875,18 @@
         const phone = document.getElementById('login-phone').value.trim();
         if (!phone) { showToast('Enter your phone number', 'err'); return; }
         try {
-            const res = await fetch(`${API}/responders/by-phone/${phone}`);
+            const res = await fetch(`${API}/responders/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone })
+            });
             if (res.ok) {
                 me = await res.json();
+                localStorage.setItem('responder_me', JSON.stringify(me));
                 document.getElementById('login-screen').style.display = 'none';
                 initApp();
             } else {
-                showToast('Phone not registered. Contact command.', 'err');
+                showToast('Phone not registered or not approved', 'err');
             }
         } catch (e) { showToast('Network error — check connection', 'err'); }
     }
@@ -1205,19 +1210,21 @@
             if (!res.ok) return;
             const list = await res.json();
             const c = document.getElementById('my-sitreps');
-            if (!list.length) {
-                c.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-txt">No SITREPs submitted yet</div></div>';
-                return;
-            }
-            c.innerHTML = list.map(s => `
-                <div class="sitrep-item">
-                    <div class="sitrep-meta">
-                        <span class="sitrep-author">${s.responder_name || me.name}</span>
-                        <span class="sitrep-time">${new Date(s.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>
+            if (c) {
+                if (!list.length) {
+                    c.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-txt">No SITREPs submitted yet</div></div>';
+                    return;
+                }
+                c.innerHTML = list.map(s => `
+                    <div class="sitrep-item">
+                        <div class="sitrep-meta">
+                            <span class="sitrep-author">${me.name}</span>
+                            <span class="sitrep-time">${new Date(s.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>
+                        </div>
+                        <div class="sitrep-text">${s.message}</div>
                     </div>
-                    <div class="sitrep-text">${s.message}</div>
-                </div>
-            `).join('');
+                `).join('');
+            }
         } catch (e) { console.error(e); }
     }
 
@@ -1237,6 +1244,16 @@
         });
         if (res.ok) showToast('📤 Report submitted', 'ok');
     }
+
+    // Auto-login if session exists
+    window.addEventListener('load', () => {
+        const saved = localStorage.getItem('responder_me');
+        if (saved) {
+            me = JSON.parse(saved);
+            document.getElementById('login-screen').style.display = 'none';
+            initApp();
+        }
+    });
 </script>
 </body>
 </html>
