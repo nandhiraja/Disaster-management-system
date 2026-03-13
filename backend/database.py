@@ -148,6 +148,7 @@ def init_db():
         level       TEXT CHECK(level IN ('info','warning','critical')),
         region      TEXT,
         is_resolved INTEGER DEFAULT 0,
+        dismissed   INTEGER DEFAULT 0,
         created_at  TEXT
     )""")
 
@@ -244,6 +245,12 @@ def apply_migrations(conn):
         c.execute("ALTER TABLE sos_requests ADD COLUMN triage_level INTEGER DEFAULT 0")
     if "verification_status" not in sos_cols:
         c.execute("ALTER TABLE sos_requests ADD COLUMN verification_status TEXT DEFAULT 'unverified'")
+    
+    # Alerts Migrations
+    c.execute("PRAGMA table_info(alerts)")
+    alert_cols = [row[1] for row in c.fetchall()]
+    if "dismissed" not in alert_cols:
+        c.execute("ALTER TABLE alerts ADD COLUMN dismissed INTEGER DEFAULT 0")
 
     conn.commit()
 
@@ -292,6 +299,8 @@ def _seed(conn):
         ("NDRF Alpha Team", "boat", "government", 100, "9841001001", ["flood_rescue"], ["boat"], "Boat", "Chennai", "approved", "NDRF"),
         ("Fire Unit 7", "fire", "government", 100, "9841001002", ["fire"], ["truck"], "Truck", "Adyar", "approved", "TN-FIRE"),
         ("Red Cross Med 1", "medical", "ngo", 80, "9841002001", ["first_aid"], ["ambulance"], "Ambulance", "Guindy", "approved", "RED CROSS"),
+        ("Vol Force Delta", "volunteer", "certified_volunteer", 70, "9841003001", ["logistics"], ["suv"], "SUV", "Salem", "approved", "RED CROSS"),
+        ("Civil Defense 4", "volunteer", "government", 90, "9841004001", ["crowd_control"], ["bike"], "Bike", "Madurai", "approved", "NDRF"),
     ]
 
     for name, rtype, tier, trust, phone, skills, equip, vehicle, district, vstatus, agency_name in responders:
@@ -382,8 +391,8 @@ def _seed(conn):
         ("weather",  "Heavy rainfall expected for next 6 hours",          "info",     "All Districts"),
     ]
     for atype, msg, level, region in alerts:
-        c.execute("INSERT INTO alerts VALUES (?,?,?,?,?,?,?)",
-            (str(uuid.uuid4()), atype, msg, level, region, 0, ts(random.randint(1,30))))
+        c.execute("INSERT INTO alerts (id, type, message, level, region, is_resolved, dismissed, created_at) VALUES (?,?,?,?,?,?,?,?)",
+            (str(uuid.uuid4()), atype, msg, level, region, 0, 0, ts(random.randint(1,30))))
 
     conn.commit()
     print("✅ Database seeded with 4-tier Chennai flood scenario data")
