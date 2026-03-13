@@ -1,5 +1,7 @@
 /* Shared API client – all pages import this */
-const API = "http://localhost:8000/api";
+const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? "http://localhost:8000/api"
+    : "https://disaster-management-system-yy3e.onrender.com/api"; // Replace with your Render URL
 
 async function apiFetch(path, options = {}) {
   try {
