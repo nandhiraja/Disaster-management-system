@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import init_db
-from routers import sos, responders, missions, dashboard, strategic, admin, area_reports
+from routers import sos, responders, missions, dashboard, strategic, admin, area_reports, agencies, sitreps, inventory
 
 app = FastAPI(
     title="Disaster Management System",
@@ -37,6 +37,9 @@ app.include_router(dashboard.router,    prefix="/api/dashboard",    tags=["Layer
 app.include_router(strategic.router,    prefix="/api/strategic",    tags=["Layer 5 – Strategic"])
 app.include_router(admin.router,        prefix="/api/admin",        tags=["Admin"])
 app.include_router(area_reports.router, prefix="/api/area-reports", tags=["Area Reports"])
+app.include_router(agencies.router,     prefix="/api/agencies",     tags=["Infrastructure – Agencies"])
+app.include_router(sitreps.router,      prefix="/api/sitreps",      tags=["Field – SITREPs"])
+app.include_router(inventory.router,    prefix="/api/inventory",    tags=["Logistics – Inventory"])
 
 if __name__ == "__main__":
     import uvicorn

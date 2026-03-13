@@ -50,11 +50,16 @@ def create_mission(data: MissionCreate):
         INSERT INTO missions (id, sos_id, responder_id, type, status, created_at, updated_at)
         VALUES (?,?,?,?,?,?,?)
     """, (mission_id, data.sos_id, None, mtype, "created", now, now))
+    
+    # Audit
+    conn.execute("INSERT INTO audit_logs (id, user_id, action, target_id, details, created_at) VALUES (?,?,?,?,?,?)",
+                 (str(uuid.uuid4()), "SYSTEM", "MISSION_CREATE", mission_id, f"SOS: {sos['sos_id']}", now))
+    
     conn.execute("UPDATE sos_requests SET status='assigned', assigned_mission=?, updated_at=? WHERE sos_id=?",
                  (mission_id, now, data.sos_id))
     conn.commit()
     conn.close()
-    return {"mission_id": mission_id, "status": "created", "message": "Mission created. Now assign a responder."}
+    return {"mission_id": mission_id, "status": "created", "message": "Mission created."}
 
 
 @router.post("/{mission_id}/assign")
@@ -75,6 +80,11 @@ def assign_responder(mission_id: str, data: MissionAssign):
     now = datetime.utcnow().isoformat()
     conn.execute("UPDATE missions SET responder_id=?, status='assigned', assigned_at=?, updated_at=? WHERE id=?",
                  (data.responder_id, now, now, mission_id))
+    
+    # Audit
+    conn.execute("INSERT INTO audit_logs (id, user_id, action, target_id, details, created_at) VALUES (?,?,?,?,?,?)",
+                 (str(uuid.uuid4()), "COMMANDER", "MISSION_ASSIGN", mission_id, f"Responder: {responder['name']}", now))
+    
     conn.execute("UPDATE responders SET status='busy', updated_at=? WHERE id=?", (now, data.responder_id))
     conn.commit()
     conn.close()
@@ -206,6 +216,10 @@ def update_mission_status(mission_id: str, data: MissionStatusUpdate):
           data.notes or mission["notes"],
           data.people_rescued if data.people_rescued is not None else mission["people_rescued"],
           completed_at, now, mission_id))
+
+    # Audit
+    conn.execute("INSERT INTO audit_logs (id, user_id, action, target_id, details, created_at) VALUES (?,?,?,?,?,?)",
+                 (str(uuid.uuid4()), mission["responder_id"] or "SYSTEM", "MISSION_STATUS_CHANGE", mission_id, f"to {data.status}", now))
 
     # When completed, free the responder and update SOS
     if data.status == "completed":

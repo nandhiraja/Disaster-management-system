@@ -19,21 +19,23 @@ def init_db():
     # ── SOS Requests ──────────────────────────────────────────────
     c.execute("""
     CREATE TABLE IF NOT EXISTS sos_requests (
-        sos_id        TEXT PRIMARY KEY,
-        source_type   TEXT NOT NULL CHECK(source_type IN ('app','sms','missed_call','volunteer')),
-        phone         TEXT,
-        lat           REAL,
-        lon           REAL,
-        gps_accuracy  REAL,
-        approx_loc    TEXT,
-        people_count  INTEGER DEFAULT 1,
-        emergency_type TEXT CHECK(emergency_type IN ('medical','flood','trapped','elderly','shelter','other','unknown')),
-        status        TEXT DEFAULT 'pending' CHECK(status IN ('pending','assigned','in_progress','rescued','closed')),
-        priority_score INTEGER DEFAULT 0,
-        assigned_mission TEXT,
-        raw_message   TEXT,
-        created_at    TEXT,
-        updated_at    TEXT
+        sos_id            TEXT PRIMARY KEY,
+        source_type       TEXT NOT NULL CHECK(source_type IN ('app','sms','missed_call','volunteer')),
+        phone             TEXT,
+        lat               REAL,
+        lon               REAL,
+        gps_accuracy      REAL,
+        approx_loc        TEXT,
+        people_count      INTEGER DEFAULT 1,
+        emergency_type    TEXT CHECK(emergency_type IN ('medical','flood','trapped','elderly','shelter','other','unknown')),
+        status            TEXT DEFAULT 'pending' CHECK(status IN ('pending','assigned','in_progress','rescued','closed')),
+        priority_score    INTEGER DEFAULT 0,
+        triage_level      INTEGER DEFAULT 0, -- NEW: 1-4 (Critical to Low)
+        verification_status TEXT DEFAULT 'unverified' CHECK(verification_status IN ('unverified','verified','rejected')), -- NEW
+        assigned_mission  TEXT,
+        raw_message       TEXT,
+        created_at        TEXT,
+        updated_at        TEXT
     )""")
     c.execute("CREATE INDEX IF NOT EXISTS idx_sos_priority ON sos_requests(priority_score DESC)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_sos_status  ON sos_requests(status)")
@@ -64,6 +66,8 @@ def init_db():
         team_size           INTEGER,
         operating_radius    REAL,
         registration_number TEXT,
+        agency_id           TEXT, -- NEW: Link to agency
+        team_id             TEXT, -- NEW: Link to team
         metadata            TEXT DEFAULT '{}'
     )""")
     c.execute("CREATE INDEX IF NOT EXISTS idx_resp_status ON responders(status)")
@@ -138,13 +142,71 @@ def init_db():
     # ── Alerts ────────────────────────────────────────────────────
     c.execute("""
     CREATE TABLE IF NOT EXISTS alerts (
-        id         TEXT PRIMARY KEY,
-        type       TEXT,
-        message    TEXT,
-        level      TEXT CHECK(level IN ('info','warning','critical')),
-        region     TEXT,
-        dismissed  INTEGER DEFAULT 0,
-        created_at TEXT
+        id          TEXT PRIMARY KEY,
+        type        TEXT, -- cluster | resource | shelter | weather
+        message     TEXT,
+        level       TEXT CHECK(level IN ('info','warning','critical')),
+        region      TEXT,
+        is_resolved INTEGER DEFAULT 0,
+        created_at  TEXT
+    )""")
+
+    # ── [NEW] Agencies ────────────────────────────────────────────
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS agencies (
+        id          TEXT PRIMARY KEY,
+        name        TEXT NOT NULL,
+        type        TEXT CHECK(type IN ('government','ngo','private','community')),
+        hq_contact  TEXT,
+        priority    INTEGER DEFAULT 5, -- 1 (Highest) to 10
+        created_at  TEXT
+    )""")
+
+    # ── [NEW] Teams ───────────────────────────────────────────────
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS teams (
+        id           TEXT PRIMARY KEY,
+        agency_id    TEXT,
+        name         TEXT NOT NULL,
+        specialty    TEXT,
+        base_loc     TEXT,
+        active_size  INTEGER,
+        created_at   TEXT
+    )""")
+
+    # ── [NEW] Inventory ───────────────────────────────────────────
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS inventory (
+        id          TEXT PRIMARY KEY,
+        owner_id    TEXT, -- agency_id or shelter_id
+        item_name   TEXT NOT NULL,
+        item_category TEXT CHECK(item_category IN ('medical','food','water','gear','fuel')),
+        quantity    REAL,
+        unit        TEXT,
+        updated_at  TEXT
+    )""")
+
+    # ── [NEW] SITREPs ─────────────────────────────────────────────
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS sitreps (
+        id           TEXT PRIMARY KEY,
+        responder_id TEXT,
+        mission_id   TEXT,
+        message      TEXT NOT NULL,
+        lat          REAL,
+        lon          REAL,
+        created_at   TEXT
+    )""")
+
+    # ── [NEW] Audit Logs ──────────────────────────────────────────
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS audit_logs (
+        id          TEXT PRIMARY KEY,
+        user_id     TEXT, -- commander or responder
+        action      TEXT,
+        target_id   TEXT, -- entity being modified
+        details     TEXT,
+        created_at  TEXT
     )""")
 
     conn.commit()
@@ -175,6 +237,14 @@ def apply_migrations(conn):
             print(f"Merging Schema: Adding column {col_name} to responders table...")
             c.execute(f"ALTER TABLE responders ADD COLUMN {col_name} {col_type}")
     
+    # SOS Migrations
+    c.execute("PRAGMA table_info(sos_requests)")
+    sos_cols = [row[1] for row in c.fetchall()]
+    if "triage_level" not in sos_cols:
+        c.execute("ALTER TABLE sos_requests ADD COLUMN triage_level INTEGER DEFAULT 0")
+    if "verification_status" not in sos_cols:
+        c.execute("ALTER TABLE sos_requests ADD COLUMN verification_status TEXT DEFAULT 'unverified'")
+
     conn.commit()
 
 
@@ -204,42 +274,36 @@ def _seed(conn):
     def jitter(base, spread=0.08):
         return round(base + random.uniform(-spread, spread), 5)
 
-    # ── Seed Responders (4 tiers) ──
+    # ── [NEW] Seed Agencies ──
+    agencies = [
+        ("NDRF", "government", "044-2456789", 1),
+        ("TN-FIRE", "government", "101", 2),
+        ("RED CROSS", "ngo", "9841005555", 3),
+    ]
+    agency_map = {}
+    for name, atype, contact, prio in agencies:
+        aid = str(uuid.uuid4())
+        agency_map[name] = aid
+        c.execute("INSERT INTO agencies (id,name,type,hq_contact,priority,created_at) VALUES (?,?,?,?,?,?)",
+                 (aid, name, atype, contact, prio, ts()))
+
+    # ── Seed Responders (with agency link) ──
     responders = [
-        # Government (trust 100)
-        ("NDRF Team Chennai",      "boat",       "government",          100, "9841001001", ["flood_rescue","swift_water"], ["boat","rescue_gear","medical_kit"], "Boat",        "Chennai North",    "approved"),
-        ("Fire & Rescue Unit 1",   "fire",       "government",          100, "9841001002", ["fire_rescue","building_rescue"], ["rescue_gear","breathing_app"], "Truck",      "Adyar",            "approved"),
-        ("Police Rescue Team",     "volunteer",  "government",          100, "9841001003", ["crowd_control","first_aid"], ["rescue_gear"],                  "Van",              "Chennai Central",  "approved"),
-        # NGO (trust 80)
-        ("Red Cross Team A",       "medical",    "ngo",                  80, "9841002001", ["first_aid","medical_training"], ["ambulance","medical_kit"],    "Ambulance",        "Guindy",           "approved"),
-        ("Red Cross Boat Team",    "boat",       "ngo",                  80, "9841002002", ["boat_driving","swimming"],    ["boat","life_jackets"],          "Boat",             "Velachery",        "approved"),
-        ("Mercy NGO Logistics",    "logistics",  "ngo",                  80, "9841002003", ["logistics","food_distribution"], ["van","food_supplies"],       "Van",              "Koyambedu",        "approved"),
-        # Certified Volunteers (trust 60)
-        ("Kumar (Certified)",      "volunteer",  "certified_volunteer",  60, "9841003001", ["swimming","first_aid"],       ["bike"],                         "Bike",             "Sholinganallur",   "approved"),
-        ("Priya (Certified Med)",  "medical",    "certified_volunteer",  60, "9841003002", ["medical_training","first_aid"],["car"],                         "Car",              "Chromepet",        "approved"),
-        ("Rajan (Boat Expert)",    "boat",       "certified_volunteer",  60, "9841003003", ["boat_driving","swimming"],    ["boat"],                         "Boat (12-seater)", "Manali",           "approved"),
-        ("Ambulance Volunteer 1",  "ambulance",  "certified_volunteer",  60, "9841003004", ["first_aid","driving"],        ["ambulance"],                    "Ambulance",        "Perambur",         "approved"),
-        # Local Volunteers (trust 40)
-        ("Murugan (Local)",        "volunteer",  "local_volunteer",      40, "9841004001", ["helper"],                     ["bike"],                         "Bike",             "Avadi",            "approved"),
-        ("Selvi (Local)",          "volunteer",  "local_volunteer",      40, "9841004002", ["swimmer","helper"],           [],                               None,               "Tambaram",         "approved"),
-        ("Venkat (Boat Owner)",    "boat",       "local_volunteer",      40, "9841004003", ["boat_driver"],                ["boat"],                         "Boat (6-seater)",  "Royapuram",        "approved"),
-        # Specialist
-        ("Helicopter Unit 1",      "helicopter", "government",          100, "9841005001", ["aerial_rescue","hoisting"],   ["helicopter"],                   "Helicopter",       "Chennai Airport",  "approved"),
-        ("Medical Van 3",          "medical",    "ngo",                  80, "9841006001", ["medical_training","emergency_care"], ["ambulance","icu_kit"],   "Ambulance",        "Anna Nagar",       "approved"),
-        ("Kanyakumari Boat Team",   "boat",       "ngo",                  80, "9841007001", ["sea_rescue","swimming"],        ["boat","life_jackets"],          "Boat",             "Kanyakumari",      "approved"),
-        ("Madurai Medical Unit",    "medical",    "government",          100, "9841008001", ["emergency_care"],               ["ambulance","first_aid"],        "Ambulance",        "Madurai",          "approved"),
-        ("Coimbatore Rescue 1",     "volunteer",  "certified_volunteer",  60, "9841009001", ["climbing","helper"],           ["bike"],                         "Bike",             "Coimbatore",       "approved"),
+        ("NDRF Alpha Team", "boat", "government", 100, "9841001001", ["flood_rescue"], ["boat"], "Boat", "Chennai", "approved", "NDRF"),
+        ("Fire Unit 7", "fire", "government", 100, "9841001002", ["fire"], ["truck"], "Truck", "Adyar", "approved", "TN-FIRE"),
+        ("Red Cross Med 1", "medical", "ngo", 80, "9841002001", ["first_aid"], ["ambulance"], "Ambulance", "Guindy", "approved", "RED CROSS"),
     ]
 
-    for name, rtype, tier, trust, phone, skills, equip, vehicle, district, vstatus in responders:
+    for name, rtype, tier, trust, phone, skills, equip, vehicle, district, vstatus, agency_name in responders:
         rid = str(uuid.uuid4())
+        aid = agency_map.get(agency_name)
         c.execute("""INSERT INTO responders
-            (id,name,type,tier,trust_score,skills,equipment,vehicle_type,lat,lon,gps_accuracy,phone,status,verification_status,district,last_seen,created_at,updated_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (id,name,type,tier,trust_score,skills,equipment,vehicle_type,lat,lon,gps_accuracy,phone,status,verification_status,district,last_seen,created_at,updated_at,agency_id)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (rid, name, rtype, tier, trust,
              json.dumps(skills), json.dumps(equip), vehicle,
              jitter(BASE_LAT), jitter(BASE_LON), round(random.uniform(8, 35), 1),
-             phone, "available", vstatus, district, ts(), ts(random.randint(1,5)), ts()))
+             phone, "available", vstatus, district, ts(), ts(random.randint(1,5)), ts(), aid))
 
     # ── Seed SOS ──
     sos_data = [

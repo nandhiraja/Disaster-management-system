@@ -1,741 +1,1242 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Responder App – Ground Zero</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#05080f">
+    <title>Field Responder — Ground Zero</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root {
-            --bg: #09090f;
-            --card: #141426;
-            --text: #ffffff;
-            --muted: #888899;
-            --accent: #0088ff;
-            --green: #00ff88;
-            --red: #ff3b3b;
-            --orange: #ff9f00;
+            --bg:       #05080f;
+            --s1:       #0c1225;
+            --s2:       #101a30;
+            --s3:       #162040;
+            --border:   #1a2b44;
+            --border-hi:#253f60;
+
+            --red:      #f43f5e;
+            --red-dim:  rgba(244,63,94,0.1);
+            --red-glow: rgba(244,63,94,0.25);
+            --amber:    #f59e0b;
+            --amber-dim:rgba(245,158,11,0.1);
+            --green:    #10b981;
+            --green-dim:rgba(16,185,129,0.1);
+            --blue:     #3b82f6;
+            --blue-dim: rgba(59,130,246,0.1);
+            --cyan:     #06b6d4;
+
+            --text:     #e2e8f0;
+            --text-2:   #7f9ab8;
+            --text-3:   #3d5470;
+
+            --font-d:   'Rajdhani', sans-serif;
+            --font-b:   'IBM Plex Sans', sans-serif;
+            --font-m:   'IBM Plex Mono', monospace;
+
+            --header-h: 66px;
+            --nav-h:    68px;
+            --r:        10px;
+            --r-sm:     6px;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        *, *::before, *::after {
+            box-sizing: border-box; margin: 0; padding: 0;
             -webkit-tap-highlight-color: transparent;
         }
 
-        body {
-            font-family: 'Outfit', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            overflow-y: scroll;
-            padding-bottom: 80px;
+        html, body {
+            height: 100%; font-family: var(--font-b);
+            background: var(--bg); color: var(--text);
+            font-size: 14px; line-height: 1.5;
+            overscroll-behavior: none;
         }
 
-        /* Login Layer */
+        ::-webkit-scrollbar { width: 3px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 3px; }
+
+        /* ════ LOGIN SCREEN ════ */
         #login-screen {
-            position: fixed;
-            inset: 0;
+            position: fixed; inset: 0; z-index: 2000;
             background: var(--bg);
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 40px;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: 32px 24px;
         }
 
-        /* Nav */
-        .bottom-nav {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(15, 15, 30, 0.95);
-            backdrop-filter: blur(10px);
-            display: flex;
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-            height: 70px;
-            z-index: 500;
-        }
-
-        .nav-item {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 4px;
-            color: var(--muted);
-            cursor: pointer;
-        }
-
-        .nav-item.active {
-            color: var(--accent);
-        }
-
-        .nav-item span {
-            font-size: 1.4rem;
-        }
-
-        .nav-item label {
-            font-size: 0.7rem;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .header {
-            padding: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .container {
-            padding: 15px;
-        }
-
-        /* Utility */
-        .badge {
-            padding: 4px 10px;
-            border-radius: 100px;
-            font-size: 0.7rem;
-            font-weight: 800;
-            text-transform: uppercase;
-        }
-
-        .badge-available {
-            background: rgba(0, 255, 136, 0.1);
-            color: var(--green);
-            border: 1px solid var(--green);
-        }
-
-        .badge-busy {
-            background: rgba(255, 159, 0, 0.1);
-            color: var(--orange);
-            border: 1px solid var(--orange);
-        }
-
-        /* Mission Card */
-        .mission-card {
-            background: var(--card);
+        .login-glow {
+            width: 80px; height: 80px;
+            background: linear-gradient(135deg, var(--blue), #1d4ed8);
             border-radius: 20px;
-            margin-bottom: 15px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 40px; margin-bottom: 22px;
+            box-shadow: 0 0 40px rgba(59,130,246,0.4);
         }
 
-        .card-inner {
-            padding: 20px;
+        .login-title {
+            font-family: var(--font-d);
+            font-size: 30px; font-weight: 700;
+            letter-spacing: 3px; color: var(--text);
+            margin-bottom: 6px; text-align: center;
         }
 
-        .card-header {
-            display: flex;
+        .login-sub {
+            font-size: 13px; color: var(--text-3);
+            text-align: center; margin-bottom: 32px;
+            line-height: 1.6;
+        }
+
+        .login-form { width: 100%; max-width: 340px; }
+
+        .login-input {
+            width: 100%; padding: 16px;
+            background: var(--s2); border: 1px solid var(--border-hi);
+            border-radius: var(--r); color: var(--text);
+            font-family: var(--font-m); font-size: 18px;
+            text-align: center; letter-spacing: 3px;
+            margin-bottom: 12px; transition: border-color 0.2s;
+        }
+
+        .login-input:focus { outline: none; border-color: var(--blue); }
+        .login-input::placeholder { color: var(--text-3); letter-spacing: 1px; font-size: 14px; }
+
+        .login-btn {
+            width: 100%; padding: 16px;
+            background: var(--blue); border: none;
+            border-radius: var(--r); color: white;
+            font-family: var(--font-d); font-size: 16px;
+            font-weight: 700; letter-spacing: 2px;
+            cursor: pointer; transition: all 0.2s;
+        }
+
+        .login-btn:hover { background: #2563eb; box-shadow: 0 6px 20px rgba(59,130,246,0.4); }
+
+        .login-hint {
+            margin-top: 24px; padding: 12px 16px;
+            background: var(--s1); border: 1px solid var(--border);
+            border-radius: var(--r-sm); font-size: 12px; color: var(--text-3);
+            text-align: center;
+        }
+
+        .login-hint b { color: var(--text-2); font-family: var(--font-m); }
+
+        /* ════ APP SHELL ════ */
+        #app-shell { display: flex; flex-direction: column; height: 100%; }
+
+        /* ── Header ── */
+        .app-header {
+            height: var(--header-h);
+            background: var(--s1);
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center;
+            padding: 0 14px; gap: 10px;
+            flex-shrink: 0; z-index: 100;
+        }
+
+        .me-avatar {
+            width: 38px; height: 38px;
+            background: var(--s3); border: 1px solid var(--border-hi);
+            border-radius: var(--r-sm); display: flex;
+            align-items: center; justify-content: center;
+            font-size: 20px; flex-shrink: 0;
+        }
+
+        .me-info { flex: 1; min-width: 0; }
+
+        .me-name {
+            font-family: var(--font-d);
+            font-size: 16px; font-weight: 700; letter-spacing: 0.5px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        .me-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 2px 8px; border-radius: 10px;
+            font-family: var(--font-m); font-size: 9px;
+            font-weight: 600; text-transform: uppercase;
+            margin-top: 2px;
+        }
+
+        .me-badge.available { background: var(--green-dim); color: var(--green); border: 1px solid rgba(16,185,129,0.2); }
+        .me-badge.busy      { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(245,158,11,0.2); }
+        .me-badge.offline   { background: rgba(61,84,112,0.2); color: var(--text-3); border: 1px solid var(--border); }
+
+        .me-badge::before {
+            content: ''; width: 5px; height: 5px; border-radius: 50%;
+            background: currentColor;
+        }
+
+        .header-actions { display: flex; gap: 7px; flex-shrink: 0; }
+
+        .hbtn {
+            padding: 7px 12px; border-radius: var(--r-sm);
+            font-family: var(--font-d); font-size: 11px;
+            font-weight: 700; letter-spacing: 1px;
+            cursor: pointer; border: 1px solid;
+            transition: all 0.15s; white-space: nowrap;
+        }
+
+        .hbtn.toggle-offline { background: transparent; color: var(--text-2); border-color: var(--border-hi); }
+        .hbtn.toggle-online  { background: var(--green-dim); color: var(--green); border-color: rgba(16,185,129,0.3); }
+        .hbtn:hover { filter: brightness(1.3); }
+
+        .hbtn.sim { background: var(--blue-dim); color: var(--blue); border-color: rgba(59,130,246,0.2); font-size: 9px; padding: 7px 9px; }
+
+        /* ════ MAIN CONTENT ════ */
+        .app-main {
+            flex: 1; overflow-y: auto;
+            padding: 0 0 var(--nav-h);
+            position: relative;
+        }
+
+        /* ── Panes ── */
+        .pane { display: none; padding: 14px; }
+        .pane.active { display: block; }
+
+        /* ════ MISSION CARDS ════ */
+        .section-ttl {
+            font-family: var(--font-d);
+            font-size: 13px; font-weight: 700;
+            letter-spacing: 2px; color: var(--text-2);
+            text-transform: uppercase; margin-bottom: 12px;
+            display: flex; align-items: center; gap: 8px;
+        }
+
+        .stl-line { flex: 1; height: 1px; background: var(--border); }
+
+        .mission-card {
+            background: var(--s2);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            overflow: hidden; margin-bottom: 12px;
+            transition: border-color 0.2s;
+        }
+
+        .mission-card.pulse-border {
+            border-color: var(--amber);
+            animation: border-pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes border-pulse {
+            0%,100% { border-color: var(--amber); }
+            50%      { border-color: rgba(245,158,11,0.2); }
+        }
+
+        .mc-body { padding: 16px; }
+
+        .mc-top {
+            display: flex; justify-content: space-between;
+            align-items: flex-start; margin-bottom: 10px;
+        }
+
+        .mc-type {
+            font-family: var(--font-d);
+            font-size: 20px; font-weight: 700;
+            letter-spacing: 1px; color: var(--amber);
+            line-height: 1;
+        }
+
+        .mc-status {
+            font-family: var(--font-m); font-size: 10px;
+            font-weight: 600; padding: 3px 9px;
+            border-radius: 10px; text-transform: uppercase;
+        }
+
+        .mc-status.en_route   { background: var(--amber-dim); color: var(--amber); }
+        .mc-status.assigned   { background: var(--blue-dim);  color: var(--blue);  }
+        .mc-status.on_site    { background: rgba(16,185,129,0.12); color: var(--green); }
+        .mc-status.rescue_in_progress { background: var(--red-dim); color: var(--red); }
+        .mc-status.default    { background: var(--blue-dim);  color: var(--blue);  }
+
+        .mc-location {
+            font-size: 14px; font-weight: 500;
+            color: var(--text); margin-bottom: 10px;
+        }
+
+        .mc-instruction {
+            background: var(--amber-dim); border: 1px solid rgba(245,158,11,0.2);
+            border-radius: var(--r-sm); padding: 10px 12px;
+            font-size: 12px; color: var(--amber);
+            margin-bottom: 12px; line-height: 1.5;
+        }
+
+        .mc-meta {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 8px; margin-bottom: 2px;
+        }
+
+        .meta-tile {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--r-sm); padding: 10px 12px;
+        }
+
+        .meta-tile-lbl {
+            font-family: var(--font-m); font-size: 9px;
+            font-weight: 600; color: var(--text-3);
+            text-transform: uppercase; letter-spacing: 1px;
+            margin-bottom: 3px;
+        }
+
+        .meta-tile-val { font-size: 14px; font-weight: 600; color: var(--text); }
+
+        /* ── Action Buttons ── */
+        .mc-actions { display: flex; border-top: 1px solid var(--border); }
+
+        .action-btn {
+            flex: 1; padding: 16px 12px;
+            border: none; font-family: var(--font-d);
+            font-size: 14px; font-weight: 700;
+            letter-spacing: 1px; cursor: pointer;
+            transition: all 0.15s; display: flex;
+            align-items: center; justify-content: center;
+            gap: 6px;
+        }
+
+        .action-btn + .action-btn { border-left: 1px solid var(--border); }
+
+        .action-btn.accept   { background: var(--green); color: #000; }
+        .action-btn.accept:hover { background: #059669; }
+        .action-btn.navigate { background: var(--blue); color: #fff; }
+        .action-btn.navigate:hover { background: #2563eb; }
+        .action-btn.support  { background: var(--red-dim); color: var(--red); }
+        .action-btn.support:hover { background: rgba(244,63,94,0.2); }
+        .action-btn.advance  { background: var(--green); color: #000; }
+        .action-btn.advance:hover { background: #059669; }
+
+        /* ════ NEARBY TEAMS ════ */
+        .team-row {
+            display: flex; align-items: center;
             justify-content: space-between;
-            margin-bottom: 12px;
+            padding: 12px 14px;
+            background: var(--s2);
+            border: 1px solid var(--border);
+            border-radius: var(--r-sm);
+            margin-bottom: 7px;
+            transition: border-color 0.15s;
         }
 
-        .card-title {
-            font-size: 1.1rem;
-            font-weight: 800;
-            color: var(--orange);
+        .team-row.avail { border-color: rgba(16,185,129,0.2); }
+        .team-row-left  { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500; }
+        .team-dist      { font-family: var(--font-m); font-size: 10px; color: var(--text-3); }
+
+        .team-status {
+            font-family: var(--font-m); font-size: 10px;
+            font-weight: 600; text-transform: uppercase;
         }
 
-        .sos-meta {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 15px;
-        }
+        .team-status.avail { color: var(--green); }
+        .team-status.busy  { color: var(--text-3); }
 
-        .meta-item {
-            background: rgba(0, 0, 0, 0.3);
-            padding: 10px;
-            border-radius: 12px;
-            font-size: 0.85rem;
-        }
-
-        .meta-item label {
-            display: block;
-            font-size: 0.65rem;
-            color: var(--muted);
-            margin-bottom: 2px;
-            text-transform: uppercase;
-        }
-
-        .btn-action {
-            width: 100%;
-            padding: 18px;
-            border: none;
-            font-size: 1rem;
-            font-weight: 800;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn-primary {
-            background: var(--accent);
-            color: #fff;
-        }
-
-        .btn-success {
-            background: var(--green);
-            color: #000;
-        }
-
-        .btn-danger {
-            background: var(--red);
-            color: #fff;
-        }
-
-        /* Map Container */
+        /* ════ MAP PANE ════ */
         #pane-map {
             position: fixed;
-            top: 70px;
-            bottom: 70px;
-            left: 0;
-            right: 0;
-            padding: 0;
+            top: var(--header-h); bottom: var(--nav-h);
+            left: 0; right: 0;
+            display: none; padding: 0;
         }
 
-        #map {
-            height: 100%;
-            width: 100%;
-            border-radius: 0;
-            margin-bottom: 0;
-            border: none;
-        }
+        #pane-map.active { display: block; }
+
+        #map { width: 100%; height: 100%; }
 
         .map-hud {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            right: 20px;
-            z-index: 600;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+            position: absolute; bottom: 16px;
+            left: 14px; right: 14px; z-index: 600;
+            display: flex; flex-direction: column; gap: 8px;
         }
 
-        .map-legend {
-            background: rgba(0, 0, 0, 0.8);
-            padding: 10px;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            display: flex;
-            gap: 15px;
-            justify-content: center;
+        .map-legend-bar {
+            background: rgba(5,8,15,0.9); backdrop-filter: blur(12px);
+            border: 1px solid var(--border); border-radius: var(--r);
+            padding: 10px 14px;
+            display: flex; gap: 16px; justify-content: center;
         }
 
-        /* Form */
-        .input-group {
-            margin-bottom: 15px;
+        .mleg-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-2); }
+        .mleg-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+        .recenter-btn {
+            width: 100%; padding: 14px;
+            background: rgba(5,8,15,0.9); backdrop-filter: blur(12px);
+            border: 1px solid var(--blue); border-radius: var(--r);
+            color: var(--blue); font-family: var(--font-d);
+            font-size: 14px; font-weight: 700; letter-spacing: 1.5px;
+            cursor: pointer; transition: all 0.15s;
         }
 
-        label {
-            display: block;
+        .recenter-btn:hover { background: var(--blue-dim); }
+
+        /* ════ FORM PANES ════ */
+        .pane-title {
+            font-family: var(--font-d);
+            font-size: 20px; font-weight: 700;
+            letter-spacing: 1.5px; margin-bottom: 18px; color: var(--text);
+        }
+
+        .form-field { margin-bottom: 16px; }
+
+        .fld-label {
+            display: block; font-family: var(--font-m);
+            font-size: 10px; font-weight: 600; color: var(--text-3);
+            text-transform: uppercase; letter-spacing: 1.5px;
+            margin-bottom: 7px;
+        }
+
+        .fld-input, .fld-select, .fld-textarea {
+            width: 100%; padding: 13px 14px;
+            background: var(--s2); border: 1px solid var(--border-hi);
+            border-radius: var(--r-sm); color: var(--text);
+            font-family: var(--font-b); font-size: 14px;
+            transition: border-color 0.15s;
+        }
+
+        .fld-input:focus, .fld-select:focus, .fld-textarea:focus {
+            outline: none; border-color: var(--blue);
+        }
+
+        .fld-textarea { resize: vertical; min-height: 80px; }
+
+        .checkbox-row {
+            display: flex; align-items: center; gap: 12px;
+            background: var(--s2); border: 1px solid var(--border);
+            border-radius: var(--r-sm); padding: 14px;
+            cursor: pointer;
+        }
+
+        .checkbox-row input[type="checkbox"] {
+            width: 20px; height: 20px; accent-color: var(--blue);
+            cursor: pointer;
+        }
+
+        .checkbox-label { font-size: 14px; font-weight: 500; cursor: pointer; }
+
+        /* Char counter */
+        .char-counter {
+            font-family: var(--font-m); font-size: 10px; color: var(--text-3);
+            text-align: right; margin-top: 5px;
+        }
+
+        .submit-btn {
+            width: 100%; padding: 16px;
+            background: var(--blue); border: none;
+            border-radius: var(--r); color: white;
+            font-family: var(--font-d); font-size: 15px;
+            font-weight: 700; letter-spacing: 2px;
+            cursor: pointer; transition: all 0.2s; margin-top: 4px;
+        }
+
+        .submit-btn:hover { background: #2563eb; box-shadow: 0 6px 20px rgba(59,130,246,0.4); }
+
+        /* ════ SITREP HISTORY ════ */
+        .sitrep-item {
+            background: var(--s2); border: 1px solid var(--border);
+            border-left: 3px solid var(--cyan);
+            border-radius: var(--r-sm); padding: 11px 12px;
             margin-bottom: 8px;
-            font-size: 0.85rem;
-            color: var(--muted);
         }
 
-        input,
-        select,
-        textarea {
-            width: 100%;
-            padding: 14px;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            color: #fff;
-            font-family: inherit;
+        .sitrep-meta {
+            display: flex; justify-content: space-between;
+            margin-bottom: 4px;
         }
 
-        .pane {
-            display: none;
+        .sitrep-author { font-family: var(--font-m); font-size: 9px; font-weight: 600; color: var(--cyan); text-transform: uppercase; }
+        .sitrep-time   { font-family: var(--font-m); font-size: 9px; color: var(--text-3); }
+        .sitrep-text   { font-size: 13px; color: var(--text-2); }
+
+        /* ════ BOTTOM NAV ════ */
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            height: var(--nav-h); z-index: 500;
+            background: rgba(12,18,37,0.96); backdrop-filter: blur(16px);
+            border-top: 1px solid var(--border);
+            display: flex; align-items: stretch;
         }
 
-        .pane.active {
-            display: block;
+        .nav-btn {
+            flex: 1; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 4px;
+            color: var(--text-3); cursor: pointer;
+            transition: all 0.15s; padding: 6px;
+            position: relative;
         }
 
-        /* Pulse for Active Mission */
-        .pulse-border {
-            border: 2px solid var(--orange) !important;
-            animation: borderPulse 2s infinite;
+        .nav-btn.active { color: var(--blue); }
+
+        .nav-btn.active::after {
+            content: ''; position: absolute; top: 0; left: 20%; right: 20%;
+            height: 2px; background: var(--blue);
+            border-radius: 0 0 3px 3px;
         }
 
-        @keyframes borderPulse {
-            0% {
-                border-color: var(--orange);
-            }
+        .nav-btn:hover:not(.active) { color: var(--text-2); }
 
-            50% {
-                border-color: transparent;
-            }
+        .nav-icon { font-size: 20px; line-height: 1; }
 
-            100% {
-                border-color: var(--orange);
-            }
+        .nav-label {
+            font-family: var(--font-d); font-size: 10px;
+            font-weight: 700; letter-spacing: 1px;
+            text-transform: uppercase;
         }
 
-        /* Nav Modal */
+        /* ════ SUPPORT DRAWER ════ */
+        .drawer-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.65);
+            z-index: 1000; display: none;
+            backdrop-filter: blur(3px);
+        }
+
+        .drawer-overlay.active { display: block; }
+
+        #support-drawer {
+            position: fixed; bottom: -100%; left: 0; right: 0;
+            background: var(--s1);
+            border-top: 2px solid var(--blue);
+            border-radius: 20px 20px 0 0;
+            z-index: 1100; padding: 24px 18px 36px;
+            transition: bottom 0.38s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 -16px 50px rgba(0,0,0,0.6);
+            max-height: 80vh; overflow-y: auto;
+        }
+
+        #support-drawer.active { bottom: 0; }
+
+        .drawer-handle {
+            width: 40px; height: 4px; background: var(--border-hi);
+            border-radius: 2px; margin: 0 auto 20px; display: block;
+        }
+
+        .drawer-hdr {
+            display: flex; justify-content: space-between;
+            align-items: center; margin-bottom: 18px;
+        }
+
+        .drawer-title {
+            font-family: var(--font-d); font-size: 19px;
+            font-weight: 700; letter-spacing: 1px;
+        }
+
+        .drawer-close {
+            background: none; border: 1px solid var(--border);
+            color: var(--text-2); width: 30px; height: 30px;
+            border-radius: var(--r-sm); cursor: pointer; font-size: 14px;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.15s;
+        }
+
+        .drawer-close:hover { border-color: var(--red); color: var(--red); }
+
+        .support-opt {
+            background: var(--s2); border: 1px solid var(--border);
+            padding: 14px; border-radius: var(--r);
+            margin-bottom: 8px; display: flex; align-items: center;
+            gap: 14px; cursor: pointer; transition: all 0.15s;
+        }
+
+        .support-opt:hover { border-color: var(--border-hi); }
+
+        .support-opt.selected { border-color: var(--blue); background: var(--blue-dim); }
+
+        .support-opt-icon { font-size: 26px; }
+        .support-opt-title { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
+        .support-opt-sub   { font-size: 11px; color: var(--text-3); }
+
+        /* ════ NAV MODAL ════ */
         #nav-modal {
-            position: fixed;
-            inset: 0;
-            background: var(--bg);
-            z-index: 2000;
-            display: none;
-            flex-direction: column;
+            position: fixed; inset: 0;
+            background: var(--bg); z-index: 3000;
+            display: none; flex-direction: column;
         }
 
-        #nav-frame {
-            flex-grow: 1;
-            width: 100%;
-            border: none;
+        .nav-modal-hdr {
+            padding: 14px 16px;
+            background: var(--s1);
+            border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between;
+            align-items: center; flex-shrink: 0;
         }
 
-        .nav-modal-header {
-            padding: 15px;
-            background: var(--card);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .nav-modal-title {
+            font-family: var(--font-d);
+            font-size: 16px; font-weight: 700;
+            letter-spacing: 1px; color: var(--blue);
+        }
+
+        .nav-exit-btn {
+            background: var(--red); border: none; color: white;
+            padding: 9px 18px; border-radius: var(--r-sm);
+            font-family: var(--font-d); font-size: 12px;
+            font-weight: 700; letter-spacing: 1px; cursor: pointer;
+        }
+
+        #nav-frame { flex-grow: 1; width: 100%; border: none; }
+
+        /* ════ TOAST ════ */
+        .toasts {
+            position: fixed; top: calc(var(--header-h) + 12px); left: 50%;
+            transform: translateX(-50%); z-index: 9999;
+            display: flex; flex-direction: column; gap: 6px;
+            pointer-events: none; align-items: center;
+        }
+
+        .toast {
+            padding: 10px 20px; border-radius: 100px;
+            font-family: var(--font-d); font-size: 13px;
+            font-weight: 700; letter-spacing: 1px;
+            white-space: nowrap; animation: tin 0.3s ease;
+        }
+
+        .toast.ok  { background: var(--green); color: #000; }
+        .toast.err { background: var(--red);   color: #fff; }
+        .toast.inf { background: var(--blue);  color: #fff; }
+
+        @keyframes tin {
+            from { transform: translateY(-14px); opacity: 0; }
+            to   { transform: translateY(0);     opacity: 1; }
+        }
+
+        /* ════ EMPTY STATE ════ */
+        .empty {
+            text-align: center; padding: 44px 20px; color: var(--text-3);
+        }
+
+        .empty-icon { font-size: 36px; margin-bottom: 10px; }
+        .empty-txt  { font-size: 13px; line-height: 1.7; }
+
+        /* ════ RESPONSIVE ════ */
+        @media (min-width: 600px) {
+            .app-main { max-width: 600px; margin: 0 auto; }
+            #pane-map { max-width: none; }
+        }
+
+        @media (min-width: 1024px) {
+            /* Tablet / laptop: make app feel more like a panel */
+            #app-shell { max-width: 540px; margin: 0 auto; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+            body { background: var(--bg); display: flex; justify-content: center; }
         }
     </style>
 </head>
-
 <body>
 
-    <div id="login-screen">
-        <div style="font-size: 4rem; margin-bottom: 20px;">🦺</div>
-        <h1 style="margin-bottom: 10px;">Responder App</h1>
-        <p style="color: var(--muted); margin-bottom: 30px;">Login with your registered phone number</p>
-        <div style="width: 100%">
-            <input type="tel" id="login-phone" placeholder="+91 XXXX XXXX XX"
-                style="text-align: center; margin-bottom: 15px;">
-            <button class="btn-action btn-primary" onclick="login()">LOGIN TO DISASTER GRID</button>
+<!-- ════ LOGIN ════ -->
+<div id="login-screen">
+    <div class="login-glow">🦺</div>
+    <div class="login-title">FIELD RESPONDER</div>
+    <div class="login-sub">Ground Zero · Tamil Nadu DMS<br>Login with your registered phone number</div>
+    <div class="login-form">
+        <input type="tel" id="login-phone" class="login-input" placeholder="+91 XXXXXXXXXX">
+        <button class="login-btn" onclick="login()">🔐 LOGIN TO DISASTER GRID</button>
+        <div class="login-hint">Demo — use phone: <b>9841001001</b> (Alpha Team)</div>
+    </div>
+</div>
+
+<!-- ════ APP ════ -->
+<div id="app-shell">
+
+    <!-- Header -->
+    <div class="app-header">
+        <div class="me-avatar" id="me-icon">🧑‍🚒</div>
+        <div class="me-info">
+            <div class="me-name" id="me-name">Team Name</div>
+            <div id="me-status-badge" class="me-badge offline">Offline</div>
         </div>
-        <div style="margin-top: 30px; font-size: 0.85rem; color: var(--muted);">Demo: Use <b>9841001001</b> (Alpha Team)
+        <div class="header-actions">
+            <button class="hbtn sim" onclick="forceChennai()">📍 SIM</button>
+            <button id="btn-toggle-online" class="hbtn toggle-offline" onclick="toggleOnline()">GO ONLINE</button>
         </div>
     </div>
 
-    <div class="header">
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <div id="me-icon" style="font-size: 1.5rem;">🧑‍🚒</div>
-            <div>
-                <div id="me-name" style="font-weight: 800; font-size: 0.9rem;">Team Name</div>
-                <div id="me-status-badge" class="badge">Offline</div>
-            </div>
-        </div>
-        <button id="btn-toggle-online" onclick="toggleOnline()"
-            style="padding: 10px 15px; border-radius: 100px; border: 1px solid #fff; background: transparent; color: #fff; font-size: 0.7rem; font-weight: 800;">GO
-            ONLINE</button>
-        <button onclick="forceChennai()"
-            style="padding: 10px 15px; border-radius: 100px; border: 1px solid var(--accent); background: rgba(0,136,255,0.1); color: var(--accent); font-size: 0.7rem; font-weight: 800; margin-right: 10px;">FORCE
-            CHENNAI</button>
-    </div>
+    <!-- Toast area -->
+    <div class="toasts" id="toasts"></div>
 
-    <div class="container">
+    <!-- Content -->
+    <div class="app-main" id="app-main">
+
+        <!-- MISSIONS PANE -->
         <div id="pane-missions" class="pane active">
-            <h3 style="margin-bottom: 20px;">Assigned Missions</h3>
+            <div class="section-ttl" style="margin-top:4px">
+                <div class="stl-line"></div>
+                ASSIGNED MISSIONS
+                <div class="stl-line"></div>
+            </div>
             <div id="mission-list">
-                <div style="text-align: center; color: var(--muted); padding: 50px 0;">No missions assigned. <br>Stay
-                    online to receive alerts.</div>
-            </div>
-
-            <h3 style="margin-top: 40px; margin-bottom: 20px;">Nearby Teams</h3>
-            <div id="nearby-teams" style="display: flex; flex-direction: column; gap: 10px;">
-                <div style="text-align: center; color: var(--muted); font-size: 0.85rem;">Searching for nearby
-                    responders...</div>
-            </div>
-        </div>
-
-        <div id="pane-map" class="pane">
-            <div id="map"></div>
-            <div class="map-hud">
-                <div class="map-legend">
-                    <span><span style="color:var(--accent)">●</span> ME</span>
-                    <span><span style="color:var(--green)">●</span> Available</span>
-                    <span><span style="color:#555">●</span> Busy</span>
+                <div class="empty">
+                    <div class="empty-icon">📋</div>
+                    <div class="empty-txt">No missions assigned.<br>Stay online to receive dispatch alerts.</div>
                 </div>
-                <button onclick="recenterMap()"
-                    style="width: 100%; padding: 15px; border-radius: 15px; border: 1px solid var(--accent); background: rgba(0,136,255,0.7); backdrop-filter:blur(5px); color: #fff; font-size: 0.8rem; font-weight: 800; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">📍
-                    RECENTER ON ME</button>
+            </div>
+
+            <div class="section-ttl" style="margin-top: 24px;">
+                <div class="stl-line"></div>
+                NEARBY TEAMS
+                <div class="stl-line"></div>
+            </div>
+            <div id="nearby-teams">
+                <div class="empty">
+                    <div class="empty-icon">📡</div>
+                    <div class="empty-txt">Searching for nearby responders...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAP PANE (fixed, outside normal flow) -->
+
+        <!-- INTEL / SITREP PANE -->
+        <div id="pane-intel" class="pane">
+            <div class="pane-title">FIELD SITREP</div>
+            <div class="form-field">
+                <label class="fld-label">Real-time Update</label>
+                <textarea id="intel-msg" class="fld-textarea" rows="4"
+                    placeholder="Sector 4 road clear. Water receding. Evacuation complete."
+                    maxlength="140" oninput="document.getElementById('intel-chars').textContent = (140 - this.value.length) + ' chars left'"></textarea>
+                <div class="char-counter" id="intel-chars">140 chars left</div>
+            </div>
+            <button class="submit-btn" onclick="submitSitrep()">📡 SEND SITREP</button>
+
+            <div class="section-ttl" style="margin-top: 24px;">
+                <div class="stl-line"></div>
+                RECENT REPORTS
+                <div class="stl-line"></div>
+            </div>
+            <div id="my-sitreps">
+                <div class="empty">
+                    <div class="empty-icon">📋</div>
+                    <div class="empty-txt">No SITREPs submitted yet</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FIELD REPORT PANE -->
+        <div id="pane-reports" class="pane">
+            <div class="pane-title">AREA CONDITION REPORT</div>
+
+            <div class="form-field">
+                <label class="fld-label">Flood Water Level</label>
+                <select id="rep-water" class="fld-select">
+                    <option value="none">None / Dry</option>
+                    <option value="ankle">🌊 Ankle Deep</option>
+                    <option value="knee">🌊 Knee Deep</option>
+                    <option value="waist">🌊🌊 Waist Deep</option>
+                    <option value="chest">🌊🌊🌊 Chest Deep</option>
+                    <option value="extreme">🚨 Extreme / Unsafe</option>
+                </select>
+            </div>
+
+            <div class="form-field">
+                <label class="fld-label">Structural Damage</label>
+                <select id="rep-damage" class="fld-select">
+                    <option value="none">None</option>
+                    <option value="partial">Partial / Cracks</option>
+                    <option value="severe">Severe / Collapse Risk</option>
+                </select>
+            </div>
+
+            <div class="form-field">
+                <label class="fld-label" for="rep-road">Hazards Present</label>
+                <div style="display:flex; flex-direction:column; gap:8px">
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="rep-road">
+                        <span class="checkbox-label">🚧 Road Blocked / Impassable</span>
+                    </label>
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="rep-fire">
+                        <span class="checkbox-label">🔥 Fire / Hazardous Material</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-field">
+                <label class="fld-label">Additional Notes</label>
+                <textarea id="rep-notes" class="fld-textarea" rows="3"
+                    placeholder="Provide any additional details for the command center..."></textarea>
+            </div>
+
+            <button class="submit-btn" onclick="submitReport()">📤 SUBMIT LIVE REPORT</button>
+        </div>
+
+    </div>
+
+    <!-- MAP (fixed positioned, toggled separately) -->
+    <div id="pane-map">
+        <div id="map"></div>
+        <div class="map-hud">
+            <div class="map-legend-bar">
+                <div class="mleg-item"><div class="mleg-dot" style="background:var(--blue)"></div> You</div>
+                <div class="mleg-item"><div class="mleg-dot" style="background:var(--green)"></div> Available</div>
+                <div class="mleg-item"><div class="mleg-dot" style="background:#2d3f57"></div> Busy</div>
+                <div class="mleg-item"><div class="mleg-dot" style="background:var(--red)"></div> SOS</div>
+            </div>
+            <button class="recenter-btn" onclick="recenterMap()">📍 RECENTER ON ME</button>
+        </div>
+    </div>
+
+    <!-- Bottom Nav -->
+    <div class="bottom-nav">
+        <div class="nav-btn active" onclick="switchNav('missions', this)">
+            <div class="nav-icon">📋</div>
+            <div class="nav-label">Missions</div>
+        </div>
+        <div class="nav-btn" onclick="switchNav('map', this)">
+            <div class="nav-icon">🗺️</div>
+            <div class="nav-label">Map</div>
+        </div>
+        <div class="nav-btn" onclick="switchNav('intel', this)">
+            <div class="nav-icon">📡</div>
+            <div class="nav-label">SITREP</div>
+        </div>
+        <div class="nav-btn" onclick="switchNav('reports', this)">
+            <div class="nav-icon">⚠️</div>
+            <div class="nav-label">Report</div>
+        </div>
+    </div>
+</div>
+
+<!-- Nav Modal (full-screen map embed) -->
+<div id="nav-modal" style="display:none; flex-direction:column; position:fixed; inset:0; z-index:3000; background:var(--bg)">
+    <div class="nav-modal-hdr">
+        <div class="nav-modal-title">📍 TACTICAL MAP</div>
+        <button class="nav-exit-btn" onclick="closeNav()">✕ EXIT</button>
+    </div>
+    <iframe id="nav-frame" src="" style="flex:1;width:100%;border:none;"></iframe>
+</div>
+
+<!-- Support Drawer -->
+<div class="drawer-overlay" id="support-overlay" onclick="closeSupportDrawer()"></div>
+<div id="support-drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-hdr">
+        <div class="drawer-title">REQUEST BACKUP</div>
+        <button class="drawer-close" onclick="closeSupportDrawer()">✕</button>
+    </div>
+    <input type="hidden" id="support-mission-id">
+    <div id="support-options">
+        <div class="support-opt selected" onclick="setSupportType('boat', this)">
+            <div class="support-opt-icon">🚤</div>
+            <div>
+                <div class="support-opt-title">Water Rescue</div>
+                <div class="support-opt-sub">Additional boat and crew needed</div>
+            </div>
+        </div>
+        <div class="support-opt" onclick="setSupportType('medical', this)">
+            <div class="support-opt-icon">🏥</div>
+            <div>
+                <div class="support-opt-title">Medical Team</div>
+                <div class="support-opt-sub">Doctor or ambulance required</div>
+            </div>
+        </div>
+        <div class="support-opt" onclick="setSupportType('fire', this)">
+            <div class="support-opt-icon">🚒</div>
+            <div>
+                <div class="support-opt-title">Fire / Hazmat</div>
+                <div class="support-opt-sub">Firefighting or hazardous material clearance</div>
             </div>
         </div>
     </div>
-
-    <div id="pane-reports" class="pane">
-        <h3 style="margin-bottom: 25px;">Area Condition Report</h3>
-        <div class="input-group">
-            <label>Flood Water Level</label>
-            <select id="rep-water">
-                <option value="none">None</option>
-                <option value="ankle">Ankle Deep</option>
-                <option value="knee">Knee Deep</option>
-                <option value="waist">Waist Deep</option>
-                <option value="chest">Chest Deep</option>
-                <option value="extreme">Extreme / Unsafe</option>
-            </select>
-        </div>
-        <div class="input-group" style="display: flex; gap: 20px; align-items: center;">
-            <input type="checkbox" id="rep-road" style="width: 20px; height: 20px;">
-            <label style="margin: 0;">Road Blocked?</label>
-        </div>
-        <div class="input-group" style="display: flex; gap: 20px; align-items: center;">
-            <input type="checkbox" id="rep-fire" style="width: 20px; height: 20px;">
-            <label style="margin: 0;">Fire/Hazmat Present?</label>
-        </div>
-        <div class="input-group">
-            <label>Structural Damage</label>
-            <select id="rep-damage">
-                <option value="none">None</option>
-                <option value="partial">Partial / Cracks</option>
-                <option value="severe">Severe / Collapse</option>
-            </select>
-        </div>
-        <div class="input-group">
-            <label>Notes</label>
-            <textarea id="rep-notes" rows="3" placeholder="Additional details for command center..."></textarea>
-        </div>
-        <button class="btn-action btn-primary" style="border-radius: 15px;" onclick="submitReport()">SUBMIT LIVE
-            REPORT</button>
+    <div class="form-field" style="margin-top:14px">
+        <label class="fld-label">Message to Command</label>
+        <textarea id="support-notes" class="fld-textarea" rows="2" placeholder="Urgency level and specific details..."></textarea>
     </div>
+    <button class="submit-btn" style="background:var(--red)" onclick="confirmSupportRequest()">🆘 SEND BACKUP REQUEST</button>
+</div>
 
-    <div id="pane-history" class="pane">
-        <h3 style="margin-bottom: 20px;">Mission History</h3>
-        <div style="text-align: center; color: var(--muted); padding: 50px 0;">No past missions found.</div>
-    </div>
-    </div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    const API = 'http://localhost:8000/api';
+    let me = null;
+    let gps = { lat: null, lon: null, acc: null };
+    let map = null, myMarker = null;
+    let assignmentPolling = null;
+    let selectedSupportType = 'boat';
 
-    <div id="nav-modal">
-        <div class="nav-modal-header">
-            <h3 style="color: var(--accent);">Navigation Guide</h3>
-            <button onclick="closeNav()" style="background: var(--red); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 800;">EXIT NAV</button>
-        </div>
-        <iframe id="nav-frame" src=""></iframe>
-    </div>
+    function calcDist(lat1, lon1, lat2, lon2) {
+        const R = 6371;
+        const dLat = (lat2-lat1)*Math.PI/180;
+        const dLon = (lon2-lon1)*Math.PI/180;
+        const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+        return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(2);
+    }
 
-    <div class="bottom-nav">
-        <div class="nav-item active" onclick="switchNav('missions')"><span>📋</span><label>Missions</label></div>
-        <div class="nav-item" onclick="switchNav('map')"><span>🗺️</span><label>Map</label></div>
-        <div class="nav-item" onclick="switchNav('reports')"><span>⚠️</span><label>Report</label></div>
-        <div class="nav-item" onclick="switchNav('history')"><span>📜</span><label>History</label></div>
-    </div>
+    function showToast(msg, type = 'ok') {
+        const c = document.getElementById('toasts');
+        const t = document.createElement('div');
+        t.className = `toast ${type}`;
+        t.textContent = msg;
+        c.appendChild(t);
+        setTimeout(() => t.remove(), 3200);
+    }
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        const API = 'http://localhost:8000/api';
-        let me = null;
-        let gps = { lat: null, lon: null, acc: null };
-        let map = null, myMarker = null;
-        let assignmentPolling = null;
-
-        // Local Haversine for accuracy
-        function calcDist(lat1, lon1, lat2, lon2) {
-            const R = 6371;
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return (R * c).toFixed(2);
-        }
-
-        async function login() {
-            const phone = document.getElementById('login-phone').value;
-            if (!phone) return alert("Enter phone");
-
-            try {
-                const res = await fetch(`${API}/responders/by-phone/${phone}`);
-                if (res.ok) {
-                    me = await res.json();
-                    document.getElementById('login-screen').style.display = 'none';
-                    initApp();
-                } else {
-                    alert("Login failed. Registration not found for this number.");
-                }
-            } catch (e) { alert("Network error"); }
-        }
-
-        function initApp() {
-            document.getElementById('me-name').textContent = me.name;
-            document.getElementById('me-icon').textContent = getIcon(me.type);
-            updateStatusUI();
-
-            // GPS Start
-            if ("geolocation" in navigator) {
-                navigator.geolocation.watchPosition(pos => {
-                    gps.lat = pos.coords.latitude;
-                    gps.lon = pos.coords.longitude;
-                    gps.acc = pos.coords.accuracy;
-
-                    // Update UI status
-                    const badge = document.getElementById('me-status-badge');
-                    if (gps.acc > 100) badge.title = "Low accuracy: ±" + Math.round(gps.acc) + "m";
-
-                    pushLocation();
-                    if (map && document.getElementById('pane-map').classList.contains('active')) {
-                        updateMyMarker();
-                    }
-                }, err => {
-                    console.error("GPS Error:", err);
-                }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
-            }
-
-            refreshData();
-            assignmentPolling = setInterval(refreshData, 10000);
-        }
-
-        function getIcon(type) {
-            const icons = { boat: '🚤', medical: '🏥', volunteer: '🧑‍🚒', ambulance: '🚑', helicopter: '🚁', logistics: '🚛', fire: '🚒' };
-            return icons[type] || '🧑‍🚒';
-        }
-
-        function switchNav(id) {
-            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-            document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
-            event.currentTarget.classList.add('active');
-            document.getElementById('pane-' + id).classList.add('active');
-            if (id === 'map') initMap();
-        }
-
-        async function toggleOnline() {
-            const newStatus = me.status === 'offline' ? 'available' : 'offline';
-            const res = await fetch(`${API}/responders/${me.id}/status`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: newStatus })
-            });
+    async function login() {
+        const phone = document.getElementById('login-phone').value.trim();
+        if (!phone) { showToast('Enter your phone number', 'err'); return; }
+        try {
+            const res = await fetch(`${API}/responders/by-phone/${phone}`);
             if (res.ok) {
-                me.status = newStatus;
-                updateStatusUI();
+                me = await res.json();
+                document.getElementById('login-screen').style.display = 'none';
+                initApp();
+            } else {
+                showToast('Phone not registered. Contact command.', 'err');
             }
+        } catch (e) { showToast('Network error — check connection', 'err'); }
+    }
+
+    function initApp() {
+        document.getElementById('me-name').textContent = me.name;
+        document.getElementById('me-icon').textContent = getIcon(me.type);
+        updateStatusUI();
+
+        if ("geolocation" in navigator) {
+            navigator.geolocation.watchPosition(pos => {
+                gps.lat = pos.coords.latitude;
+                gps.lon = pos.coords.longitude;
+                gps.acc = pos.coords.accuracy;
+                pushLocation();
+                if (map && document.getElementById('pane-map').classList.contains('active')) {
+                    updateMyMarker();
+                }
+            }, err => console.error("GPS:", err), { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
         }
 
-        function updateStatusUI() {
-            const badge = document.getElementById('me-status-badge');
-            const btn = document.getElementById('btn-toggle-online');
-            badge.className = 'badge badge-' + (me.status === 'available' ? 'available' : (me.status === 'busy' ? 'busy' : 'offline'));
-            badge.textContent = me.status.toUpperCase();
-            btn.textContent = me.status === 'offline' ? 'GO ONLINE' : 'GO OFFLINE';
+        refreshData();
+        assignmentPolling = setInterval(refreshData, 10000);
+    }
+
+    function getIcon(type) {
+        const m = { boat:'🚤', medical:'🏥', volunteer:'🧑‍🚒', ambulance:'🚑', helicopter:'🚁', logistics:'🚛', fire:'🚒' };
+        return m[type] || '🧑‍🚒';
+    }
+
+    function switchNav(id, el) {
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        el.classList.add('active');
+
+        // Handle map separately (fixed positioned)
+        const mapPane = document.getElementById('pane-map');
+        const appMain = document.getElementById('app-main');
+
+        if (id === 'map') {
+            document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+            mapPane.classList.add('active');
+            appMain.style.visibility = 'hidden';
+            initMap();
+        } else {
+            mapPane.classList.remove('active');
+            appMain.style.visibility = 'visible';
+            document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+            const target = document.getElementById('pane-' + id);
+            if (target) target.classList.add('active');
         }
+    }
 
-        async function pushLocation() {
-            if (!me) return;
-            await fetch(`${API}/responders/${me.id}/location`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lat: gps.lat, lon: gps.lon, accuracy: gps.acc })
-            });
+    async function toggleOnline() {
+        const newStatus = me.status === 'offline' ? 'available' : 'offline';
+        const res = await fetch(`${API}/responders/${me.id}/status`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+        });
+        if (res.ok) {
+            me.status = newStatus;
+            updateStatusUI();
+            showToast(newStatus === 'available' ? '🟢 You are now ONLINE' : '⭕ You went OFFLINE', 'inf');
         }
+    }
 
-        async function refreshData() {
-            if (!me) return;
+    function updateStatusUI() {
+        const badge = document.getElementById('me-status-badge');
+        const btn   = document.getElementById('btn-toggle-online');
+        const statusClass = me.status === 'available' ? 'available' : me.status === 'busy' ? 'busy' : 'offline';
+        badge.className = `me-badge ${statusClass}`;
+        badge.textContent = me.status.toUpperCase();
+        btn.textContent = me.status === 'offline' ? 'GO ONLINE' : 'GO OFFLINE';
+        btn.className = `hbtn ${me.status !== 'offline' ? 'toggle-online' : 'toggle-offline'}`;
+    }
 
-            // Missions
+    async function pushLocation() {
+        if (!me) return;
+        await fetch(`${API}/responders/${me.id}/location`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lat: gps.lat, lon: gps.lon, accuracy: gps.acc })
+        });
+    }
+
+    async function refreshData() {
+        if (!me) return;
+        try {
             const res = await fetch(`${API}/missions/my-assignments/${me.id}`);
             const missions = await res.json();
             renderMissions(missions);
+        } catch (e) { console.error(e); }
 
-            // Nearby
-            if (gps.lat) {
-                // Fetch ALL nearby, not just available
+        if (gps.lat) {
+            try {
                 const nr = await fetch(`${API}/responders/nearby?lat=${gps.lat}&lon=${gps.lon}&radius_km=5`);
                 const teams = await nr.json();
                 renderNearby(teams);
                 if (map) updateNearbyMarkers(teams);
-            }
+            } catch (e) { console.error(e); }
+        }
+    }
+
+    function renderMissions(list) {
+        const c = document.getElementById('mission-list');
+        if (!list.length) {
+            c.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-txt">No missions assigned.<br>Stay online to receive dispatch alerts.</div></div>';
+            return;
         }
 
-        function renderMissions(list) {
-            const container = document.getElementById('mission-list');
-            if (!list.length) {
-                container.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 50px 0;">No missions assigned. <br>Stay online to receive alerts.</div>';
-                return;
-            }
+        c.innerHTML = list.map(m => {
+            const isNew     = m.status === 'assigned' || m.status === 'created';
+            const statusCls = ['en_route','on_site','rescue_in_progress'].includes(m.status) ? m.status : 'default';
 
-            container.innerHTML = list.map(m => `
-            <div class="mission-card ${m.status !== 'created' ? 'pulse-border' : ''}">
-                <div class="card-inner">
-                    <div class="card-header">
-                        <div class="card-title">${m.emergency_type.toUpperCase()} RESCUE</div>
-                        <div class="badge ${m.status === 'en_route' ? 'badge-busy' : 'badge-available'}">${m.status.replace('_', ' ')}</div>
+            return `
+                <div class="mission-card ${!isNew ? 'pulse-border' : ''}">
+                    <div class="mc-body">
+                        <div class="mc-top">
+                            <div class="mc-type">${m.emergency_type.toUpperCase()} RESCUE</div>
+                            <div class="mc-status ${statusCls}">${m.status.replace(/_/g,' ')}</div>
+                        </div>
+                        <div class="mc-location">📍 ${m.approx_loc || 'Unknown Location'}</div>
+                        ${m.special_instruction ? `
+                            <div class="mc-instruction">
+                                📋 <strong>INSTRUCTION:</strong> ${m.special_instruction}
+                            </div>
+                        ` : ''}
+                        <div class="mc-meta">
+                            <div class="meta-tile">
+                                <div class="meta-tile-lbl">People</div>
+                                <div class="meta-tile-val">👥 ${m.people_count}</div>
+                            </div>
+                            <div class="meta-tile">
+                                <div class="meta-tile-lbl">Priority Score</div>
+                                <div class="meta-tile-val">${m.priority_score || '—'}</div>
+                            </div>
+                        </div>
                     </div>
-                    <div style="font-size: 0.9rem; margin-bottom: 10px;">📍 ${m.approx_loc || 'Unknown Location'}</div>
-                    ${m.special_instruction ? `
-                        <div style="background: rgba(255,159,0,0.1); border: 1px solid var(--orange); padding:10px; border-radius:10px; font-size:0.75rem; color:var(--orange); margin-bottom:12px;">
-                            📜 <b>INSTRUCTION:</b> ${m.special_instruction}
+                    <div class="mc-actions">
+                        ${isNew
+                            ? `<button class="action-btn accept" onclick="updateMission('${m.id}','accept')">✅ ACCEPT MISSION</button>`
+                            : `
+                                <button class="action-btn navigate" onclick="showNavMenu(${m.sos_lat}, ${m.sos_lon})">🗺️ NAVIGATE</button>
+                                <button class="action-btn support" onclick="openSupportDrawer('${m.id}')">🆘 SUPPORT</button>
+                            `
+                        }
+                    </div>
+                    ${!isNew ? `
+                        <div class="mc-actions">
+                            <button class="action-btn advance" style="flex:1" onclick="advanceStatus('${m.id}','${m.status}')">
+                                ▶ ${getNextStatusLabel(m.status)}
+                            </button>
                         </div>
                     ` : ''}
-                    <div class="sos-meta">
-                        <div class="meta-item"><label>PEOPLE</label>${m.people_count} Victims</div>
-                        <div class="meta-item"><label>PRIORITY</label>${m.priority_score || 'High'}</div>
-                    </div>
-                </div>
-                ${m.status === 'assigned' || m.status === 'created' ?
-                    `<button class="btn-action btn-success" onclick="updateMission('${m.id}', 'accept')">ACCEPT MISSION</button>` :
-                    `<div style="display: flex;">
-                        <button class="btn-action btn-primary" style="flex: 2" onclick="openNav(${m.sos_lat}, ${m.sos_lon})">🗺️ NAVIGATE</button>
-                        <button class="btn-action btn-danger" style="flex: 1; border-left: 1px solid rgba(255,255,255,0.1)" onclick="requestBackup('${m.id}')">🆘 BACKUP</button>
-                     </div>
-                     <button class="btn-action btn-success" onclick="advanceStatus('${m.id}', '${m.status}')">${getNextStatusLabel(m.status)}</button>`
-                }
-            </div>
-        `).join('');
-        }
-
-        function getNextStatusLabel(curr) {
-            const flow = { en_route: 'Reached Location', on_site: 'Start Rescue', rescue_in_progress: 'Complete Rescue' };
-            return flow[curr] || 'Update Status';
-        }
-
-        async function advanceStatus(id, curr) {
-            const flow = { en_route: 'on_site', on_site: 'rescue_in_progress', rescue_in_progress: 'completed' };
-            const next = flow[curr];
-            if (!next) return;
-
-            const res = await fetch(`${API}/missions/${id}/status`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: next })
-            });
-            if (res.ok) refreshData();
-        }
-
-        async function updateMission(id, action) {
-            const res = await fetch(`${API}/missions/${id}/${action}`, { method: 'PUT' });
-            if (res.ok) refreshData();
-        }
-
-        function renderNearby(teams) {
-            const container = document.getElementById('nearby-teams');
-            const filtered = teams.filter(t => t.id !== me.id);
-            if (!filtered.length) {
-                container.innerHTML = '<div style="text-align: center; color: var(--muted); font-size: 0.85rem;">No other teams nearby.</div>';
-                return;
-            }
-            container.innerHTML = filtered.map(t => {
-                // Use local calculation if possible for better sync
-                const d = (gps.lat && t.lat) ? calcDist(gps.lat, gps.lon, t.lat, t.lon) : t.distance_km;
-                return `
-                <div style="display: flex; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 12px; border: 1px solid ${t.status === 'available' ? 'rgba(0,255,136,0.2)' : 'rgba(255,255,255,0.05)'};">
-                    <div>${getIcon(t.type)} ${t.name} <span style="font-size: 0.7rem; color: var(--muted);">(${d || '?'}km)</span></div>
-                    <div style="color: ${t.status === 'available' ? 'var(--green)' : 'var(--muted)'}; font-weight: 800; font-size: 0.7rem;">${t.status.toUpperCase()}</div>
                 </div>
             `;
-            }).join('');
-        }
+        }).join('');
+    }
 
-        function initMap() {
-            if (!map) {
-                map = L.map('map', { zoomControl: false }).setView([gps.lat || 13.08, gps.lon || 80.27], 13);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    function getNextStatusLabel(curr) {
+        const flow = { en_route: '📍 REACHED LOCATION', on_site: '🚒 START RESCUE', rescue_in_progress: '✅ COMPLETE RESCUE' };
+        return flow[curr] || 'UPDATE STATUS';
+    }
+
+    async function advanceStatus(id, curr) {
+        const flow = { en_route: 'on_site', on_site: 'rescue_in_progress', rescue_in_progress: 'completed' };
+        const next = flow[curr];
+        if (!next) return;
+        const res = await fetch(`${API}/missions/${id}/status`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: next })
+        });
+        if (res.ok) {
+            showToast(`Status → ${next.replace(/_/g,' ').toUpperCase()}`, 'ok');
+            refreshData();
+        }
+    }
+
+    async function updateMission(id, action) {
+        const res = await fetch(`${API}/missions/${id}/${action}`, { method: 'PUT' });
+        if (res.ok) { showToast('Mission accepted!', 'ok'); refreshData(); }
+    }
+
+    function renderNearby(teams) {
+        const c = document.getElementById('nearby-teams');
+        const filtered = teams.filter(t => t.id !== me.id);
+        if (!filtered.length) {
+            c.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><div class="empty-txt">No other teams nearby.</div></div>';
+            return;
+        }
+        c.innerHTML = filtered.map(t => {
+            const d = (gps.lat && t.lat) ? calcDist(gps.lat, gps.lon, t.lat, t.lon) : t.distance_km;
+            const isAvail = t.status === 'available';
+            return `
+                <div class="team-row ${isAvail ? 'avail' : ''}">
+                    <div class="team-row-left">
+                        ${getIcon(t.type)} ${t.name}
+                        <span class="team-dist">${d || '?'} km</span>
+                    </div>
+                    <div class="team-status ${isAvail ? 'avail' : 'busy'}">${t.status.toUpperCase()}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function initMap() {
+        if (!map) {
+            map = L.map('map', { zoomControl: false }).setView([gps.lat || 13.08, gps.lon || 80.27], 13);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map);
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+        }
+        updateMyMarker();
+    }
+
+    function updateMyMarker() {
+        if (!gps.lat) return;
+        if (myMarker) map.removeLayer(myMarker);
+        myMarker = L.circleMarker([gps.lat, gps.lon], {
+            color: '#3b82f6', fillColor: '#3b82f6', radius: 9, weight: 2, fillOpacity: 0.9
+        }).addTo(map).bindTooltip('<b>YOU</b>', { permanent: false });
+
+        if (window.accCircle) map.removeLayer(window.accCircle);
+        window.accCircle = L.circle([gps.lat, gps.lon], {
+            radius: gps.acc, color: '#3b82f6', weight: 1, fillOpacity: 0.06
+        }).addTo(map);
+    }
+
+    let peerMarkers = {};
+    function updateNearbyMarkers(teams) {
+        teams.forEach(t => {
+            if (t.id === me.id || !t.lat) return;
+            const color = t.status === 'available' ? '#10b981' : '#2d3f57';
+            if (peerMarkers[t.id]) {
+                peerMarkers[t.id].setLatLng([t.lat, t.lon]).setStyle({ color });
+            } else {
+                peerMarkers[t.id] = L.circleMarker([t.lat, t.lon], { color, radius: 6, weight: 2, fillOpacity: 0.8 })
+                    .addTo(map).bindTooltip(`${t.name} (${t.status})`);
             }
-            updateMyMarker();
+        });
+    }
+
+    function recenterMap() {
+        if (gps.lat) map.flyTo([gps.lat, gps.lon], 16);
+        else showToast('Waiting for GPS fix...', 'inf');
+    }
+
+    function forceChennai() {
+        gps.lat = 13.0827; gps.lon = 80.2707; gps.acc = 10;
+        pushLocation();
+        if (map) { updateMyMarker(); map.flyTo([gps.lat, gps.lon], 16); }
+        showToast('📍 Simulated: Chennai Central', 'inf');
+    }
+
+    function showNavMenu(lat, lon) {
+        const choice = confirm("Open in Google Maps for real-time directions?\n\nOK = Google Maps\nCancel = In-App View");
+        if (choice) {
+            window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`, '_blank');
+        } else {
+            openNav(lat, lon);
         }
+    }
 
-        function updateMyMarker() {
-            if (!gps.lat) return;
-            if (myMarker) map.removeLayer(myMarker);
-            myMarker = L.circleMarker([gps.lat, gps.lon], { color: 'var(--accent)', radius: 8, fillOpacity: 1 }).addTo(map);
+    function openNav(lat, lon) {
+        const nm = document.getElementById('nav-modal');
+        document.getElementById('nav-frame').src = `https://www.google.com/maps?q=${lat},${lon}&output=embed`;
+        nm.style.display = 'flex';
+    }
 
-            // Add accuracy circle
-            if (window.accCircle) map.removeLayer(window.accCircle);
-            window.accCircle = L.circle([gps.lat, gps.lon], { radius: gps.acc, weight: 1, color: 'var(--accent)', fillOpacity: 0.1 }).addTo(map);
+    function closeNav() {
+        document.getElementById('nav-modal').style.display = 'none';
+        document.getElementById('nav-frame').src = '';
+    }
+
+    function openSupportDrawer(missionId) {
+        document.getElementById('support-mission-id').value = missionId;
+        document.getElementById('support-drawer').classList.add('active');
+        document.getElementById('support-overlay').classList.add('active');
+    }
+
+    function closeSupportDrawer() {
+        document.getElementById('support-drawer').classList.remove('active');
+        document.getElementById('support-overlay').classList.remove('active');
+    }
+
+    function setSupportType(type, el) {
+        selectedSupportType = type;
+        document.querySelectorAll('.support-opt').forEach(o => o.classList.remove('selected'));
+        el.classList.add('selected');
+    }
+
+    async function confirmSupportRequest() {
+        const missionId = document.getElementById('support-mission-id').value;
+        const msg = document.getElementById('support-notes').value;
+        const res = await fetch(`${API}/missions/${missionId}/request-backup`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ request_type: selectedSupportType, message: msg })
+        });
+        if (res.ok) {
+            showToast('🆘 Support request sent to command', 'ok');
+            closeSupportDrawer();
         }
+    }
 
-        let peerMarkers = {};
-        function updateNearbyMarkers(teams) {
-            teams.forEach(t => {
-                if (t.id === me.id || !t.lat) return;
-                const color = t.status === 'available' ? 'var(--green)' : '#555';
-                if (peerMarkers[t.id]) {
-                    peerMarkers[t.id].setLatLng([t.lat, t.lon]).setStyle({ color });
-                } else {
-                    peerMarkers[t.id] = L.circleMarker([t.lat, t.lon], { color, radius: 6, weight: 2, fillOpacity: 0.8 })
-                        .addTo(map).bindTooltip(`${t.name} (${t.status})`);
-                }
-            });
+    async function submitSitrep() {
+        const msg = document.getElementById('intel-msg').value.trim();
+        if (!msg || !me) { showToast('Enter a message first', 'err'); return; }
+        const res = await fetch(`${API}/sitreps/create`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ responder_id: me.id, message: msg, lat: gps.lat, lon: gps.lon })
+        });
+        if (res.ok) {
+            document.getElementById('intel-msg').value = '';
+            document.getElementById('intel-chars').textContent = '140 chars left';
+            showToast('📡 SITREP sent to command', 'ok');
+            loadMySitreps();
         }
+    }
 
-        function recenterMap() {
-            if (gps.lat) map.flyTo([gps.lat, gps.lon], 16);
-            else alert("Waiting for GPS fix...");
-        }
-
-        function forceChennai() {
-            gps.lat = 13.0827;
-            gps.lon = 80.2707;
-            gps.acc = 10;
-            pushLocation();
-            if (map) {
-                updateMyMarker();
-                map.flyTo([gps.lat, gps.lon], 16);
+    async function loadMySitreps() {
+        if (!me) return;
+        try {
+            const res = await fetch(`${API}/sitreps/my/${me.id}`);
+            if (!res.ok) return;
+            const list = await res.json();
+            const c = document.getElementById('my-sitreps');
+            if (!list.length) {
+                c.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-txt">No SITREPs submitted yet</div></div>';
+                return;
             }
-            alert("Simulated Location: Chennai Central");
-        }
+            c.innerHTML = list.map(s => `
+                <div class="sitrep-item">
+                    <div class="sitrep-meta">
+                        <span class="sitrep-author">${s.responder_name || me.name}</span>
+                        <span class="sitrep-time">${new Date(s.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>
+                    </div>
+                    <div class="sitrep-text">${s.message}</div>
+                </div>
+            `).join('');
+        } catch (e) { console.error(e); }
+    }
 
-        function openNav(lat, lon) {
-            const url = `https://www.google.com/maps/embed/v1/directions?key=YOUR_GOOGLE_KEY_SUBSTITUTE&origin=${gps.lat},${gps.lon}&destination=${lat},${lon}&mode=driving`;
-            // NOTE: Embedding Google Maps directions requires an API Key. 
-            // For demo purposes, we will use a regular embed or fallback to open in window if key is missing.
-            const frame = document.getElementById('nav-frame');
-            const modal = document.getElementById('nav-modal');
-            
-            // Fallback for demo: use a searchable map link or simple navigation if no key provided
-            frame.src = `https://www.google.com/maps?q=${lat},${lon}&output=embed`; 
-            modal.style.display = 'flex';
-        }
-
-        function closeNav() {
-            document.getElementById('nav-modal').style.display = 'none';
-            document.getElementById('nav-frame').src = '';
-        }
-
-        async function submitReport() {
-            const data = {
-                responder_id: me.id,
-                lat: gps.lat,
-                lon: gps.lon,
-                water_level: document.getElementById('rep-water').value,
-                road_blocked: document.getElementById('rep-road').checked,
-                fire_detected: document.getElementById('rep-fire').checked,
-                building_damage: document.getElementById('rep-damage').value,
-                notes: document.getElementById('rep-notes').value
-            };
-
-            const res = await fetch(`${API}/area-reports`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            if (res.ok) {
-                alert("Report submitted to command center.");
-                document.getElementById('rep-notes').value = '';
-            }
-        }
-
-        async function requestBackup(missionId) {
-            const type = prompt("What type of backup do you need? (boat/medical/fire/evacuation/logistics)", "boat");
-            if (!type) return;
-            const msg = prompt("Details (e.g. '3 more people stuck on roof')");
-
-            const res = await fetch(`${API}/missions/${missionId}/request-backup`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ request_type: type, message: msg })
-            });
-            if (res.ok) alert("Backup request sent. Commander has been alerted.");
-        }
-    </script>
-
+    async function submitReport() {
+        const payload = {
+            responder_id: me.id,
+            flood_level:  document.getElementById('rep-water').value,
+            road_blocked: document.getElementById('rep-road').checked,
+            fire_present: document.getElementById('rep-fire').checked,
+            damage:       document.getElementById('rep-damage').value,
+            notes:        document.getElementById('rep-notes').value,
+            lat: gps.lat, lon: gps.lon
+        };
+        const res = await fetch(`${API}/sitreps/create`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ responder_id: me.id, message: `Field Report: Flood ${payload.flood_level}, Road ${payload.road_blocked ? 'BLOCKED' : 'clear'}, Fire ${payload.fire_present ? 'YES' : 'no'}. ${payload.notes}`, lat: gps.lat, lon: gps.lon })
+        });
+        if (res.ok) showToast('📤 Report submitted', 'ok');
+    }
+</script>
 </body>
-
 </html>

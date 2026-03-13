@@ -4,292 +4,1225 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Disaster Operations Command Dashboard</title>
+    <title>Command Operations HQ — Disaster Management System</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        /* ════════════════════════════════════════════
+           DESIGN TOKENS
+        ════════════════════════════════════════════ */
         :root {
-            --bg: #050510;
-            --panel: #0d0d1f;
-            --card: #15152a;
-            --text: #ffffff;
-            --muted: #888899;
-            --accent: #0088ff;
-            --red: #ff3b3b;
-            --green: #00ff88;
-            --orange: #ff9f00;
+            --bg: #05080f;
+            --surface-0: #080d1a;
+            --surface-1: #0c1225;
+            --surface-2: #101a30;
+            --surface-3: #162040;
+            --border: #1a2b44;
+            --border-hi: #253f60;
+
+            --red: #f43f5e;
+            --red-glow: rgba(244, 63, 94, 0.25);
+            --red-dim: rgba(244, 63, 94, 0.1);
+            --amber: #f59e0b;
+            --amber-dim: rgba(245, 158, 11, 0.1);
+            --green: #10b981;
+            --green-dim: rgba(16, 185, 129, 0.1);
+            --blue: #3b82f6;
+            --blue-dim: rgba(59, 130, 246, 0.1);
+            --cyan: #06b6d4;
+            --cyan-dim: rgba(6, 182, 212, 0.1);
+            --purple: #8b5cf6;
+
+            --text: #e2e8f0;
+            --text-2: #7f9ab8;
+            --text-3: #3d5470;
+
+            --font-display: 'Rajdhani', sans-serif;
+            --font-body: 'IBM Plex Sans', sans-serif;
+            --font-mono: 'IBM Plex Mono', monospace;
+
+            --sidebar-w: 390px;
+            --r: 8px;
+            --r-sm: 5px;
         }
 
-        * {
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
         }
 
+        html,
         body {
-            font-family: 'Outfit', sans-serif;
+            height: 100%;
+            font-family: var(--font-body);
             background: var(--bg);
             color: var(--text);
+            font-size: 13px;
+            line-height: 1.5;
             overflow: hidden;
-            height: 100vh;
-            display: flex;
         }
 
-        /* Left Control Panel */
-        .controls {
-            width: 450px;
+        ::-webkit-scrollbar {
+            width: 3px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-hi);
+            border-radius: 3px;
+        }
+
+        /* ════ LAYOUT ════ */
+        .layout {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ════ SIDEBAR ════ */
+        .sidebar {
+            width: var(--sidebar-w);
             height: 100%;
-            background: var(--panel);
-            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            background: var(--surface-0);
+            border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
-            z-index: 1000;
+            flex-shrink: 0;
+            z-index: 200;
+            transition: transform 0.3s ease;
         }
 
-        .ctrl-header {
-            padding: 25px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .tabs {
+        /* ── Brand Header ── */
+        .sb-head {
+            padding: 14px 16px 12px;
+            border-bottom: 1px solid var(--border);
             display: flex;
-            padding: 10px;
-            gap: 5px;
-            background: rgba(0, 0, 0, 0.2);
-            margin: 15px;
-            border-radius: 12px;
-        }
-
-        .tab {
-            flex: 1;
-            padding: 8px;
-            text-align: center;
-            font-size: 0.75rem;
-            font-weight: 800;
-            border-radius: 8px;
-            cursor: pointer;
-            color: var(--muted);
-        }
-
-        .tab.active {
-            background: var(--accent);
-            color: #fff;
-        }
-
-        .list-container {
-            flex-grow: 1;
-            overflow-y: auto;
-            padding: 0 15px 15px;
-        }
-
-        /* Map View */
-        #map {
-            flex-grow: 1;
-            height: 100%;
-            position: relative;
-        }
-
-        /* Cards */
-        .card {
-            background: var(--card);
-            border-radius: 15px;
-            padding: 15px;
-            margin-bottom: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.03);
-            transition: all 0.2s;
-            cursor: pointer;
-        }
-
-        .card:hover {
-            border-color: var(--accent);
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .card.active {
-            border-color: var(--accent);
-            box-shadow: 0 0 15px rgba(0, 136, 255, 0.2);
-        }
-
-        .card-title {
-            font-size: 0.95rem;
-            font-weight: 800;
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-        }
-
-        .card-meta {
-            display: flex;
+            flex-direction: column;
             gap: 10px;
-            font-size: 0.75rem;
-            color: var(--muted);
+            flex-shrink: 0;
         }
 
-        .priority-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-        }
-
-        .btn-assign {
-            width: 100%;
-            padding: 10px;
-            background: var(--accent);
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            font-size: 0.8rem;
-            font-weight: 800;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-
-        /* Float Overlays */
-        .stat-bar {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(13, 13, 31, 0.8);
-            backdrop-filter: blur(10px);
-            padding: 15px 25px;
-            border-radius: 20px;
+        .brand-row {
             display: flex;
-            gap: 30px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            z-index: 500;
+            align-items: center;
+            gap: 10px;
         }
 
-        .stat-item label {
-            display: block;
-            font-size: 0.65rem;
-            color: var(--muted);
+        .brand-emblem {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, var(--red) 0%, #9f1239 100%);
+            border-radius: var(--r-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+            box-shadow: 0 0 14px var(--red-glow);
+        }
+
+        .brand-text {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .brand-name {
+            font-family: var(--font-display);
+            font-size: 19px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            line-height: 1;
+            color: var(--text);
+        }
+
+        .brand-sub {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 3px;
+        }
+
+        .live-pill {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: var(--green-dim);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            padding: 3px 9px;
+            border-radius: 20px;
+        }
+
+        .live-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--green);
+            animation: blink 1.6s infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: 0.3
+            }
+        }
+
+        .live-text {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--green);
             text-transform: uppercase;
             letter-spacing: 1px;
         }
 
-        .stat-item span {
-            font-size: 1.2rem;
-            font-weight: 800;
-        }
-
-        /* SOS Alert List */
-        .alert-box {
-            padding: 12px;
-            border-radius: 10px;
-            margin-bottom: 8px;
-            font-size: 0.85rem;
-            border-left: 4px solid #fff;
-        }
-
-        .alert-critical {
-            background: rgba(255, 59, 59, 0.1);
-            border-color: var(--red);
-            color: #ff9999;
-        }
-
-        .alert-warning {
-            background: rgba(255, 159, 0, 0.1);
-            border-color: var(--orange);
-            color: #ffcc88;
-        }
-
-        /* LEGEND & CONTROLS */
-        .legend {
-            position: absolute;
-            bottom: 30px;
-            right: 20px;
-            background: var(--panel);
-            padding: 15px;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            z-index: 500;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .map-btn {
-            position: absolute;
-            bottom: 30px;
-            right: 180px;
-            background: var(--panel);
-            padding: 12px;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            z-index: 500;
-            border: 1px solid var(--accent);
-            color: var(--accent);
+        .zone-select {
+            background: var(--surface-2);
+            border: 1px solid var(--border-hi);
+            color: var(--blue);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 500;
+            padding: 8px 30px 8px 10px;
+            border-radius: var(--r-sm);
+            width: 100%;
             cursor: pointer;
-            font-weight: 800;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%233b82f6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            transition: border-color 0.15s;
         }
 
-        /* Assignment HUD */
+        .zone-select:focus {
+            outline: none;
+            border-color: var(--blue);
+        }
+
+        /* ── Quick Nav ── */
+        .qnav {
+            display: flex;
+            gap: 5px;
+            padding: 8px 16px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .qnav-btn {
+            flex: 1;
+            padding: 6px 4px;
+            text-align: center;
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            border-radius: var(--r-sm);
+            text-decoration: none;
+            transition: all 0.15s;
+        }
+
+        .qnav-btn.sos {
+            background: var(--red-dim);
+            color: var(--red);
+            border: 1px solid rgba(244, 63, 94, 0.2);
+        }
+
+        .qnav-btn.vol {
+            background: var(--green-dim);
+            color: var(--green);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .qnav-btn.auth {
+            background: var(--blue-dim);
+            color: var(--blue);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .qnav-btn:hover {
+            filter: brightness(1.4);
+        }
+
+        /* ── Tabs ── */
+        .tabs {
+            display: flex;
+            padding: 0 10px;
+            border-bottom: 1px solid var(--border);
+            overflow-x: auto;
+            flex-shrink: 0;
+            scrollbar-width: none;
+        }
+
+        .tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tab {
+            padding: 10px 10px;
+            font-family: var(--font-display);
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            color: var(--text-3);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            white-space: nowrap;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .tab:hover {
+            color: var(--text-2);
+        }
+
+        .tab.active {
+            color: var(--blue);
+            border-bottom-color: var(--blue);
+        }
+
+        .tab-badge {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            font-weight: 600;
+            padding: 1px 5px;
+            border-radius: 10px;
+            min-width: 16px;
+            text-align: center;
+        }
+
+        .tab-badge.red {
+            background: var(--red);
+            color: #fff;
+        }
+
+        .tab-badge.blue {
+            background: var(--blue);
+            color: #fff;
+        }
+
+        .tab-badge.amber {
+            background: var(--amber);
+            color: #000;
+        }
+
+        .tab-badge.green {
+            background: var(--green);
+            color: #000;
+        }
+
+        /* ── Panes ── */
+        .pane {
+            display: none;
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
+
+        .pane.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section-hdr {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 0 8px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 10px;
+        }
+
+        .section-label {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .section-count {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            background: var(--surface-3);
+            color: var(--text-2);
+            padding: 2px 7px;
+            border-radius: 10px;
+        }
+
+        /* ════ SOS CARDS ════ */
+        .sos-card {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--border);
+            border-radius: var(--r);
+            padding: 12px 12px 10px;
+            margin-bottom: 7px;
+            cursor: pointer;
+            transition: all 0.15s;
+            position: relative;
+        }
+
+        .sos-card:hover {
+            background: var(--surface-3);
+            border-left-color: var(--blue);
+            border-color: var(--border-hi);
+        }
+
+        .sos-card.critical {
+            border-left-color: var(--red);
+        }
+
+        .sos-card.critical:hover {
+            border-color: rgba(244, 63, 94, 0.35);
+        }
+
+        .sos-card.dispatched {
+            border-left-color: var(--green);
+            opacity: 0.92;
+        }
+
+        .sos-card.selected {
+            border-color: var(--blue);
+            border-left-color: var(--blue);
+            background: rgba(59, 130, 246, 0.06);
+        }
+
+        .pulse-ring {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--red);
+        }
+
+        .pulse-ring::after {
+            content: '';
+            position: absolute;
+            inset: -3px;
+            border-radius: 50%;
+            border: 2px solid var(--red);
+            animation: pulse-out 1.8s ease-out infinite;
+        }
+
+        @keyframes pulse-out {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(2.5);
+                opacity: 0;
+            }
+        }
+
+        .card-top {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 7px;
+        }
+
+        .etype-badge {
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            padding: 2px 8px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        .etype-badge.default {
+            background: var(--blue-dim);
+            color: var(--blue);
+        }
+
+        .etype-badge.flood {
+            background: var(--cyan-dim);
+            color: var(--cyan);
+        }
+
+        .etype-badge.medical {
+            background: var(--red-dim);
+            color: var(--red);
+        }
+
+        .etype-badge.fire {
+            background: var(--amber-dim);
+            color: var(--amber);
+        }
+
+        .status-pill {
+            margin-left: auto;
+            font-family: var(--font-mono);
+            font-size: 9px;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 10px;
+            text-transform: uppercase;
+        }
+
+        .status-pill.critical {
+            background: var(--red-dim);
+            color: var(--red);
+        }
+
+        .status-pill.deployed {
+            background: var(--green-dim);
+            color: var(--green);
+        }
+
+        .status-pill.pending {
+            background: var(--amber-dim);
+            color: var(--amber);
+        }
+
+        .card-location {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .card-meta {
+            display: flex;
+            gap: 12px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--text-3);
+            margin-bottom: 7px;
+        }
+
+        .mbar {
+            display: flex;
+            gap: 2px;
+            margin-top: 6px;
+        }
+
+        .mseg {
+            flex: 1;
+            height: 3px;
+            border-radius: 2px;
+            background: var(--border);
+            transition: background 0.3s;
+        }
+
+        .mseg.done {
+            background: var(--green);
+        }
+
+        .mseg.current {
+            background: var(--amber);
+        }
+
+        .mstatus {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            color: var(--green);
+            margin-top: 3px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-deploy {
+            width: 100%;
+            margin-top: 8px;
+            padding: 8px;
+            background: var(--blue);
+            color: white;
+            border: none;
+            border-radius: var(--r-sm);
+            font-family: var(--font-display);
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn-deploy:hover {
+            background: #2563eb;
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35);
+        }
+
+        .btn-deploy.danger {
+            background: var(--red);
+        }
+
+        .btn-deploy.danger:hover {
+            background: #e11d48;
+            box-shadow: 0 4px 16px var(--red-glow);
+        }
+
+        /* ════ MISSION CARDS ════ */
+        .mission-card {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            padding: 11px 13px;
+            margin-bottom: 7px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .mission-card:hover {
+            background: var(--surface-3);
+        }
+
+        .mission-hdr {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .mission-title {
+            font-family: var(--font-display);
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: var(--text);
+        }
+
+        .mission-stage {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 10px;
+            text-transform: uppercase;
+            background: var(--blue-dim);
+            color: var(--blue);
+        }
+
+        .mission-team {
+            font-size: 11px;
+            color: var(--text-2);
+            margin-bottom: 7px;
+        }
+
+        /* ════ SITREP ════ */
+        .sitrep-card {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--cyan);
+            border-radius: var(--r);
+            padding: 10px 12px;
+            margin-bottom: 7px;
+        }
+
+        .sitrep-hdr {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .sitrep-who {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--cyan);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sitrep-when {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            color: var(--text-3);
+        }
+
+        .sitrep-msg {
+            font-size: 12px;
+            color: var(--text-2);
+            line-height: 1.5;
+        }
+
+        /* ════ ALERT CARDS ════ */
+        .alert-card {
+            border-radius: var(--r);
+            padding: 12px 13px;
+            margin-bottom: 8px;
+            border: 1px solid;
+        }
+
+        .alert-card.critical {
+            background: rgba(244, 63, 94, 0.06);
+            border-color: rgba(244, 63, 94, 0.25);
+        }
+
+        .alert-card.warning {
+            background: var(--amber-dim);
+            border-color: rgba(245, 158, 11, 0.25);
+        }
+
+        .alert-card.info {
+            background: var(--cyan-dim);
+            border-color: rgba(6, 182, 212, 0.25);
+        }
+
+        .alert-title {
+            font-family: var(--font-display);
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+
+        .alert-title.critical {
+            color: var(--red);
+        }
+
+        .alert-title.warning {
+            color: var(--amber);
+        }
+
+        .alert-title.info {
+            color: var(--cyan);
+        }
+
+        .alert-body {
+            font-size: 12px;
+            color: var(--text-2);
+        }
+
+        /* ════ RESOURCES ════ */
+        .chart-box {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            padding: 13px;
+            margin-bottom: 12px;
+        }
+
+        .chart-box canvas {
+            max-height: 130px;
+        }
+
+        .res-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .res-table th {
+            text-align: left;
+            padding: 7px 10px;
+            font-family: var(--font-mono);
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .res-table td {
+            padding: 9px 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            vertical-align: middle;
+        }
+
+        .res-table tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .res-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* ════ MAP AREA ════ */
+        #map-area {
+            flex: 1;
+            position: relative;
+            background: var(--bg);
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* ── Floating stats ── */
+        .map-stats {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            z-index: 500;
+            background: rgba(5, 8, 15, 0.92);
+            backdrop-filter: blur(14px);
+            border: 1px solid var(--border-hi);
+            border-radius: var(--r);
+            display: flex;
+            overflow: hidden;
+        }
+
+        .mstat {
+            padding: 10px 16px;
+            text-align: center;
+            border-right: 1px solid var(--border);
+        }
+
+        .mstat:last-child {
+            border-right: none;
+        }
+
+        .mstat-val {
+            font-family: var(--font-display);
+            font-size: 28px;
+            font-weight: 700;
+            line-height: 1;
+            display: block;
+        }
+
+        .mstat-lbl {
+            font-family: var(--font-mono);
+            font-size: 8px;
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            display: block;
+            margin-top: 3px;
+        }
+
+        .mstat.red .mstat-val {
+            color: var(--red);
+        }
+
+        .mstat.green .mstat-val {
+            color: var(--green);
+        }
+
+        .mstat.amber .mstat-val {
+            color: var(--amber);
+        }
+
+        /* ── Map Controls ── */
+        .map-ctrls {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            z-index: 500;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .mcbtn {
+            padding: 7px 11px;
+            background: rgba(5, 8, 15, 0.92);
+            backdrop-filter: blur(14px);
+            border: 1px solid var(--border-hi);
+            border-radius: var(--r-sm);
+            color: var(--text-2);
+            font-family: var(--font-display);
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .mcbtn:hover {
+            border-color: var(--blue);
+            color: var(--text);
+        }
+
+        .mcbtn.on {
+            background: rgba(59, 130, 246, 0.18);
+            border-color: var(--blue);
+            color: var(--blue);
+        }
+
+        .mcbtn.amber-ctrl:hover {
+            border-color: var(--amber);
+            color: var(--amber);
+        }
+
+        .mcbtn.amber-ctrl.on {
+            background: var(--amber-dim);
+            border-color: var(--amber);
+            color: var(--amber);
+        }
+
+        .mcbtn.red-ctrl:hover {
+            border-color: var(--red);
+            color: var(--red);
+        }
+
+        .mcbtn.red-ctrl.on {
+            background: var(--red-dim);
+            border-color: var(--red);
+            color: var(--red);
+        }
+
+        /* ── Map Legend ── */
+        .map-legend {
+            position: absolute;
+            bottom: 22px;
+            right: 14px;
+            z-index: 500;
+            background: rgba(5, 8, 15, 0.92);
+            backdrop-filter: blur(14px);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            padding: 11px 13px;
+        }
+
+        .legend-ttl {
+            font-family: var(--font-mono);
+            font-size: 8px;
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+        }
+
+        .legend-row {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 11px;
+            color: var(--text-2);
+            margin-bottom: 5px;
+        }
+
+        .legend-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .ldot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        /* ════ ASSIGN HUD (modal) ════ */
+        .hud-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(4px);
+            z-index: 700;
+            display: none;
+        }
+
         #assign-hud {
             position: absolute;
-            bottom: 30px;
-            left: 480px;
-            width: 350px;
-            background: var(--panel);
-            border: 1px solid var(--accent);
-            border-radius: 20px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: min(390px, 92vw);
+            background: var(--surface-1);
+            border: 1px solid var(--border-hi);
+            border-radius: var(--r);
             padding: 20px;
             display: none;
-            z-index: 600;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            z-index: 800;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+            max-height: 80vh;
+            overflow-y: auto;
         }
 
-        /* Responsive / iPad Adjustments */
-        @media (max-width: 1024px) {
-            body {
-                flex-direction: column;
+        .hud-hdr {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 12px;
+            margin-bottom: 14px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .hud-title {
+            font-family: var(--font-display);
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: var(--blue);
+        }
+
+        .hud-close {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-2);
+            width: 28px;
+            height: 28px;
+            border-radius: var(--r-sm);
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+
+        .hud-close:hover {
+            border-color: var(--red);
+            color: var(--red);
+        }
+
+        .candidate {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--r-sm);
+            padding: 11px;
+            margin-bottom: 8px;
+            transition: border-color 0.15s;
+        }
+
+        .candidate:hover {
+            border-color: var(--border-hi);
+        }
+
+        .candidate.warn {
+            border-color: rgba(245, 158, 11, 0.3);
+        }
+
+        .cand-hdr {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .cand-name {
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--text);
+        }
+
+        .cand-pts {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--green);
+        }
+
+        .cand-meta {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--text-3);
+            margin-bottom: 6px;
+        }
+
+        .cand-inst {
+            background: var(--amber-dim);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            color: var(--amber);
+            margin-bottom: 7px;
+        }
+
+        /* ════ EMPTY STATE ════ */
+        .empty {
+            text-align: center;
+            padding: 36px 16px;
+            color: var(--text-3);
+        }
+
+        .empty-icon {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .empty-txt {
+            font-size: 11px;
+            line-height: 1.6;
+        }
+
+        /* ════ TOAST ════ */
+        .toasts {
+            position: fixed;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            pointer-events: none;
+        }
+
+        .toast {
+            padding: 10px 22px;
+            border-radius: 100px;
+            font-family: var(--font-display);
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            white-space: nowrap;
+            animation: toast-in 0.3s ease;
+        }
+
+        .toast.ok {
+            background: var(--green);
+            color: #000;
+        }
+
+        .toast.err {
+            background: var(--red);
+            color: #fff;
+        }
+
+        @keyframes toast-in {
+            from {
+                transform: translateY(-16px);
+                opacity: 0;
             }
-            .controls {
-                width: 100%;
-                height: 400px;
-                border-right: none;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            }
-            #assign-hud {
-                left: 20px;
-                right: 20px;
-                width: auto;
-            }
-            .stat-bar {
-                padding: 10px 15px;
-                gap: 15px;
-                top: 10px;
-                right: 10px;
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
             }
         }
 
-        /* Mobile Toggle */
-        #ctrl-toggle {
+        /* ════ MOBILE TOGGLE ════ */
+        #mob-toggle {
             display: none;
             position: fixed;
             bottom: 20px;
             left: 20px;
             z-index: 2000;
-            background: var(--accent);
+            background: var(--blue);
             border: none;
-            color: #fff;
-            padding: 12px 20px;
+            color: white;
+            padding: 11px 18px;
             border-radius: 100px;
-            font-weight: 800;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            font-family: var(--font-display);
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
+            box-shadow: 0 5px 20px rgba(59, 130, 246, 0.45);
+            align-items: center;
+            gap: 7px;
+        }
+
+        /* ════ LEAFLET OVERRIDES ════ */
+        .leaflet-control-zoom {
+            border: 1px solid var(--border-hi) !important;
+            border-radius: var(--r-sm) !important;
+            overflow: hidden;
+        }
+
+        .leaflet-control-zoom a {
+            background: rgba(5, 8, 15, 0.92) !important;
+            color: var(--text-2) !important;
+            border-bottom-color: var(--border) !important;
+            width: 30px !important;
+            height: 30px !important;
+            line-height: 30px !important;
+            font-size: 16px !important;
+        }
+
+        .leaflet-control-zoom a:hover {
+            background: var(--surface-3) !important;
+            color: var(--text) !important;
+        }
+
+        .leaflet-tooltip {
+            background: var(--surface-1) !important;
+            border: 1px solid var(--border-hi) !important;
+            color: var(--text) !important;
+            font-family: var(--font-body) !important;
+            font-size: 12px !important;
+            border-radius: var(--r-sm) !important;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
+            padding: 0 !important;
+        }
+
+        .leaflet-tooltip::before {
+            display: none !important;
+        }
+
+        /* ════ RESPONSIVE ════ */
+        @media (max-width: 1100px) {
+            :root {
+                --sidebar-w: 340px;
+            }
         }
 
         @media (max-width: 768px) {
-            #ctrl-toggle { display: block; }
-            .controls {
+            #mob-toggle {
+                display: flex !important;
+            }
+
+            .sidebar {
                 position: fixed;
                 top: 0;
                 left: 0;
-                transform: translateX(-100%);
-                transition: transform 0.3s ease;
                 height: 100%;
-                width: 85%;
+                width: min(360px, 90vw);
+                transform: translateX(-100%);
+                z-index: 1500;
             }
-            .controls.open {
+
+            .sidebar.open {
                 transform: translateX(0);
+                box-shadow: 10px 0 40px rgba(0, 0, 0, 0.7);
+            }
+
+            .map-stats {
+                top: auto;
+                bottom: 76px;
+                right: 8px;
+                left: 8px;
+                justify-content: space-around;
+            }
+
+            .map-ctrls {
+                flex-direction: row;
+                flex-wrap: wrap;
+                top: 8px;
+                left: 8px;
+                right: 8px;
+            }
+
+            .map-legend {
+                bottom: 14px;
+                right: 8px;
+            }
+
+            #assign-hud {
+                width: calc(100vw - 16px);
             }
         }
     </style>
@@ -297,78 +1230,156 @@
 
 <body>
 
-    <button id="ctrl-toggle" onclick="document.querySelector('.controls').classList.toggle('open')">☰ MENU</button>
+    <button id="mob-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">
+        ☰ OPS PANEL
+    </button>
 
-    <div class="controls">
-        <div class="ctrl-header">
-            <h2 style="font-weight: 800; letter-spacing: -1px;">TEAM DASHBOARD <span
-                    style="font-weight: 300; font-size: 0.8rem; color: var(--muted);">OPERATIONS</span></h2>
-            <select id="zone-select"
-                style="width:100%; margin-top:10px; background:rgba(0,0,0,0.3); border:1px solid rgba(0,136,255,0.3); color:var(--accent); font-weight:800; padding:8px; border-radius:8px;"
-                onchange="changeZone()">
-                <option value="">📍 SELECT OPERATIONAL ZONE...</option>
-            </select>
+    <div class="toasts" id="toasts"></div>
+
+    <div class="layout">
+
+        <!-- ════ SIDEBAR ════ -->
+        <div class="sidebar">
+            <div class="sb-head">
+                <div class="brand-row">
+                    <div class="brand-emblem">🛡️</div>
+                    <div class="brand-text">
+                        <div class="brand-name">COMMAND HQ</div>
+                        <div class="brand-sub">Disaster Ops · Tamil Nadu</div>
+                    </div>
+                    <div class="live-pill">
+                        <div class="live-dot"></div>
+                        <span class="live-text">LIVE</span>
+                    </div>
+                </div>
+                <select class="zone-select" id="zone-select" onchange="changeZone()">
+                    <option value="">📍 SELECT OPERATIONAL ZONE...</option>
+                </select>
+            </div>
+
+            <div class="qnav">
+                <a href="sos.html" class="qnav-btn sos">🆘 SOS</a>
+                <a href="responders_register.html" class="qnav-btn vol">🤝 Volunteer</a>
+                <a href="authority.html" class="qnav-btn auth">🏛️ Authority</a>
+            </div>
+
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('sos', this)">
+                    TRIAGE
+                    <span class="tab-badge red" id="badge-triage">0</span>
+                </div>
+                <div class="tab" onclick="switchTab('missions', this)">
+                    MISSIONS
+                    <span class="tab-badge blue" id="badge-missions">0</span>
+                </div>
+                <div class="tab" onclick="switchTab('resources', this)">DIRECTORATE</div>
+                <div class="tab" onclick="switchTab('sitreps', this)">SITREPS</div>
+                <div class="tab" onclick="switchTab('alerts', this)">
+                    ALERTS
+                    <span class="tab-badge amber" id="badge-alerts">0</span>
+                </div>
+            </div>
+
+            <!-- TRIAGE pane -->
+            <div id="list-sos" class="pane active">
+                <div class="section-hdr">
+                    <span class="section-label">Critical &amp; Pending</span>
+                    <span class="section-count" id="count-unverified">0</span>
+                </div>
+                <div id="triage-pending"></div>
+
+                <div class="section-hdr" style="margin-top: 8px;">
+                    <span class="section-label">Active Deployments</span>
+                    <span class="section-count" id="count-dispatched">0</span>
+                </div>
+                <div id="triage-active"></div>
+            </div>
+
+            <!-- MISSIONS pane -->
+            <div id="list-missions" class="pane"></div>
+
+            <!-- RESOURCES pane -->
+            <div id="list-resources" class="pane">
+                <div class="chart-box">
+                    <div class="section-hdr" style="border:none; padding:0; margin-bottom:10px;">
+                        <span class="section-label">Agency Personnel</span>
+                    </div>
+                    <canvas id="resourceChart"></canvas>
+                </div>
+                <div id="resource-table-container"></div>
+            </div>
+
+            <!-- SITREPS pane -->
+            <div id="list-sitreps" class="pane"></div>
+
+            <!-- ALERTS pane -->
+            <div id="list-alerts" class="pane"></div>
         </div>
 
-        <!-- System Navigation -->
-        <div style="display: flex; padding: 0 15px; gap: 5px; margin-top: 10px;">
-            <a href="sos.html"
-                style="flex:1; padding: 8px; text-align:center; font-size: 0.7rem; border-radius: 6px; background: rgba(255,59,59,0.1); color: #ff9999; text-decoration: none; border: 1px solid rgba(255,59,59,0.2);">🆘
-                SOS</a>
-            <a href="responders_register.html"
-                style="flex:1; padding: 8px; text-align:center; font-size: 0.7rem; border-radius: 6px; background: rgba(0,255,136,0.1); color: #99ffcc; text-decoration: none; border: 1px solid rgba(0,255,136,0.2);">🤝
-                VOLUNTEER</a>
-            <a href="authority.html"
-                style="flex:1; padding: 8px; text-align:center; font-size: 0.7rem; border-radius: 6px; background: rgba(0,136,255,0.1); color: #99ccff; text-decoration: none; border: 1px solid rgba(0,136,255,0.2);">🏛️
-                AUTHORITY</a>
-        </div>
+        <!-- ════ MAP AREA ════ -->
+        <div id="map-area">
+            <div id="map"></div>
 
-        <div class="tabs">
-            <div class="tab active" onclick="switchTab('sos', this)">SOS QUEUE</div>
-            <div class="tab" onclick="switchTab('missions', this)">MISSIONS</div>
-            <div class="tab" onclick="switchTab('resources', this)">RESOURCES</div>
-            <div class="tab" onclick="switchTab('alerts', this)">ALERTS</div>
-        </div>
+            <!-- Floating Stats -->
+            <div class="map-stats">
+                <div class="mstat red">
+                    <span class="mstat-val" id="stat-sos">0</span>
+                    <span class="mstat-lbl">Active SOS</span>
+                </div>
+                <div class="mstat green">
+                    <span class="mstat-val" id="stat-resp">0</span>
+                    <span class="mstat-lbl">Responders</span>
+                </div>
+                <div class="mstat amber">
+                    <span class="mstat-val" id="stat-rescue">0</span>
+                    <span class="mstat-lbl">In Rescue</span>
+                </div>
+            </div>
 
-        <div id="list-sos" class="list-container"></div>
-        <div id="list-missions" class="list-container" style="display:none"></div>
-        <div id="list-resources" class="list-container" style="display:none"></div>
-        <div id="list-alerts" class="list-container" style="display:none"></div>
+            <!-- Map controls -->
+            <div class="map-ctrls">
+                <button class="mcbtn" onclick="fitAll()">⛶ FIT ALL</button>
+                <button id="topo-btn" class="mcbtn amber-ctrl" onclick="toggleTopo()">🏔 TOPO</button>
+                <button id="rain-btn" class="mcbtn" onclick="toggleWeather()">🌧 RAIN</button>
+                <button id="thermal-btn" class="mcbtn red-ctrl" onclick="toggleThermal()">🌡 THERMAL</button>
+                <button id="flood-btn" class="mcbtn" onclick="toggleFloodLayer()">🌊 INUNDATION</button>
+            </div>
+
+            <!-- Legend -->
+            <div class="map-legend">
+                <div class="legend-ttl">Legend</div>
+                <div class="legend-row">
+                    <div class="ldot" style="background:var(--red)"></div> Critical SOS
+                </div>
+                <div class="legend-row">
+                    <div class="ldot" style="background:var(--blue)"></div> Assigned SOS
+                </div>
+                <div class="legend-row">
+                    <div class="ldot" style="background:var(--amber)"></div> In Progress
+                </div>
+                <div class="legend-row">
+                    <div class="ldot" style="background:var(--green)"></div> Resolved
+                </div>
+                <div class="legend-row">
+                    <div class="ldot" style="background:var(--cyan)"></div> Responder (Free)
+                </div>
+                <div class="legend-row">
+                    <div class="ldot" style="background:#2d3f57"></div> Responder (Busy)
+                </div>
+            </div>
+
+            <!-- HUD backdrop + modal -->
+            <div class="hud-backdrop" id="hud-backdrop" onclick="hideHUD()"></div>
+            <div id="assign-hud">
+                <div class="hud-hdr">
+                    <div class="hud-title" id="hud-title">MATCH RESPONDER</div>
+                    <button class="hud-close" onclick="hideHUD()">✕</button>
+                </div>
+                <div id="hud-candidates"></div>
+            </div>
+        </div>
     </div>
 
-    <div id="map">
-        <div class="stat-bar">
-            <div class="stat-item"><label>Active SOS</label><span id="stat-sos">0</span></div>
-            <div class="stat-item"><label>Responders</label><span id="stat-resp">0</span></div>
-            <div class="stat-item"><label>In Rescue</label><span id="stat-rescue">0</span></div>
-        </div>
-
-        <div
-            style="position:absolute; top:100px; right:20px; z-index:500; display:flex; flex-direction:column; gap:10px;">
-            <button class="map-btn" style="position:static;" onclick="fitAll()">⛶ FIT ALL</button>
-            <button id="topo-btn" class="map-btn"
-                style="position:static; border-color:var(--orange); color:var(--orange);" onclick="toggleTopo()">🏔️
-                TOPO MAP</button>
-            <button id="rain-btn" class="map-btn"
-                style="position:static; border-color:var(--accent); color:var(--accent);" onclick="toggleWeather('precipitation')">🌧️
-                RAIN MAP</button>
-        </div>
-
-        <div id="assign-hud">
-            <h3 id="hud-title" style="margin-bottom: 15px; color: var(--accent);">Match Responder</h3>
-            <div id="hud-candidates"></div>
-            <button class="btn-assign" style="margin-top: 15px; background: #222;" onclick="hideHUD()">CLOSE</button>
-        </div>
-
-        <div class="legend">
-            <div style="margin-bottom: 6px;"><span style="color:red">●</span> Critical SOS (Priority > 80)</div>
-            <div style="margin-bottom: 6px;"><span style="color:orange">●</span> Active SOS</div>
-            <div style="margin-bottom: 6px;"><span style="color:cyan">◆</span> Available Responder</div>
-            <div><span style="color:gray">◆</span> Busy/Offline</div>
-        </div>
-    </div>
-
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const API = 'http://localhost:8000/api';
         const TN_DISTRICTS = ["Chennai", "Coimbatore", "Madurai", "Tiruchirappalli", "Salem", "Tirunelveli", "Vellore", "Erode", "Thoothukudi", "Thanjavur", "Dindigul", "Ranipet", "Karur", "Namakkal", "Krishnagiri", "Dharmapuri", "Villupuram", "Cuddalore", "Nagapattinam", "Tiruvarur", "Mayiladuthurai", "Ariyalur", "Perambalur", "Pudukkottai", "Sivaganga", "Virudhunagar", "Ramanathapuram", "Theni", "Nilgiris", "Tiruppur", "Kanchipuram", "Chengalpattu", "Kanyakumari", "Tiruvallur", "Kallakurichi", "Tirupattur", "Tenkasi", "Tiruvannamalai"];
@@ -376,25 +1387,33 @@
 
         let map, markers = { sos: {}, resp: {} };
         let selectedSOS = null;
-        let lastData = { sos: [], resp: [], missions: [], alerts: [], backups: [] };
+        let lastData = { sos: [], resp: [], missions: [], alerts: [], backups: [], directory: [], sitreps: [] };
         let baseLayers = {
-            dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'),
-            topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png')
-        };
-        let weatherLayers = {
-            precipitation: L.tileLayer('https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=YOUR_OWM_KEY_SUBSTITUTE'), // Mocked if no key
+            dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20, attribution: '&copy; CartoDB' }),
+            topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: '&copy; OpenTopoMap' })
         };
         let activeLayer = 'dark';
+        let inundationLayer = null, rainLayer = null, thermalLayer = null;
+
+        function showToast(msg, type = 'ok') {
+            const c = document.getElementById('toasts');
+            const t = document.createElement('div');
+            t.className = `toast ${type}`;
+            t.textContent = msg;
+            c.appendChild(t);
+            setTimeout(() => t.remove(), 3200);
+        }
 
         function init() {
             map = L.map('map', { zoomControl: false }).setView([13.0827, 80.2707], 13);
             baseLayers.dark.addTo(map);
+            L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
-            const zoneSel = document.getElementById('zone-select');
+            const sel = document.getElementById('zone-select');
             TN_DISTRICTS.forEach(d => {
-                const opt = document.createElement('option');
-                opt.value = d; opt.textContent = d.toUpperCase();
-                zoneSel.appendChild(opt);
+                const o = document.createElement('option');
+                o.value = d; o.textContent = d.toUpperCase();
+                sel.appendChild(o);
             });
 
             refresh();
@@ -403,180 +1422,283 @@
 
         async function refresh() {
             try {
-                const [sos, resp, missions, alerts, backups] = await Promise.all([
+                const [sos, resp, missions, alerts, backups, directory, sitreps] = await Promise.all([
                     fetch(`${API}/sos/all`).then(r => r.ok ? r.json() : []),
                     fetch(`${API}/responders`).then(r => r.ok ? r.json() : []),
                     fetch(`${API}/missions`).then(r => r.ok ? r.json() : []),
                     fetch(`${API}/dashboard/alerts`).then(r => r.ok ? r.json() : []),
-                    fetch(`${API}/missions/support-requests`).then(r => r.ok ? r.json() : [])
+                    fetch(`${API}/missions/support-requests`).then(r => r.ok ? r.json() : []),
+                    fetch(`${API}/agencies/directory`).then(r => r.ok ? r.json() : []),
+                    fetch(`${API}/sitreps/recent`).then(r => r.ok ? r.json() : [])
                 ]);
-
-                lastData = { sos, resp, missions, alerts, backups };
-
+                lastData = { sos, resp, missions, alerts, backups, directory, sitreps };
                 updateStats(sos, resp, missions);
-                renderSOS(sos);
+                renderKanban(sos);
                 renderMissions(missions);
-                renderResources(resp);
+                renderResources(directory);
+                renderSitreps(sitreps);
                 renderAlerts(alerts, backups);
                 updateMap(sos, resp);
-
-                // Map Auto-Fit (once on first load if markers exist)
                 if (!window.initialFit && (Object.keys(markers.sos).length > 0 || Object.keys(markers.resp).length > 0)) {
-                    fitAll();
-                    window.initialFit = true;
+                    fitAll(); window.initialFit = true;
                 }
-            } catch (e) {
-                console.error("Refresh failed:", e);
-            }
+            } catch (e) { console.error("Refresh:", e); }
         }
 
         function fitAll() {
-            const allMarkers = [...Object.values(markers.sos), ...Object.values(markers.resp)];
-            if (allMarkers.length > 0) {
-                const group = new L.featureGroup(allMarkers);
-                if (group.getBounds().isValid()) {
-                    map.fitBounds(group.getBounds().pad(0.2));
-                }
+            const all = [...Object.values(markers.sos), ...Object.values(markers.resp)];
+            if (all.length) {
+                const g = new L.featureGroup(all);
+                if (g.getBounds().isValid()) map.fitBounds(g.getBounds().pad(0.2));
             }
         }
 
         function updateStats(sos, resp, m) {
-            document.getElementById('stat-sos').textContent = sos.filter(s => s.status === 'pending').length;
+            const pending = sos.filter(s => s.status === 'pending').length;
+            const active = m.filter(mi => mi.status !== 'completed').length;
+            document.getElementById('stat-sos').textContent = pending;
             document.getElementById('stat-resp').textContent = resp.filter(r => r.status === 'available').length;
-            document.getElementById('stat-rescue').textContent = m.filter(mi => mi.status !== 'completed').length;
-        }
-
-        function renderSOS(list) {
-            const container = document.getElementById('list-sos');
-            const pending = list.filter(s => s.status === 'pending');
-            container.innerHTML = pending.length ? pending.map(s => `
-            <div class="card ${selectedSOS === s.sos_id ? 'active' : ''}" onclick="focusSOS('${s.sos_id}', ${s.lat || 13.08}, ${s.lon || 80.27})">
-                <div class="card-title">
-                    <span>${s.emergency_type.toUpperCase()}</span>
-                    <span style="color: ${s.priority_score > 80 ? 'var(--red)' : 'var(--orange)'}">${s.priority_score} PTS</span>
-                </div>
-                <div style="font-size: 0.8rem; margin-bottom: 8px;">📍 ${s.approx_loc || 'Nearby'}</div>
-                <div class="card-meta">
-                    <span>👥 ${s.people_count} Victims</span>
-                    <span>🕒 ${formatTime(s.created_at)}</span>
-                    <span>📡 ±${Math.round(s.gps_accuracy || 0)}m</span>
-                </div>
-                <button class="btn-assign" onclick="findMatches('${s.sos_id}', ${s.lat}, ${s.lon})">FIND NEAREST TEAM</button>
-            </div>
-        `).join('') : '<div style="color:var(--muted); text-align:center; padding:20px;">No pending SOS</div>';
-        }
-
-        function renderMissions(list) {
-            const container = document.getElementById('list-missions');
-            const active = list.filter(m => m.status !== 'completed');
-            container.innerHTML = active.map(m => `
-            <div class="card" onclick="map.flyTo([${m.sos_lat || 13.08}, ${m.sos_lon || 80.27}], 16)">
-                <div class="card-title">
-                    <span>${(m.type || 'Rescue').toUpperCase()}</span>
-                    <span style="font-size: 0.6rem; color: var(--accent);">${m.status.toUpperCase()}</span>
-                </div>
-                <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 8px;">🧑‍🚒 ${m.responder_name}</div>
-                <div style="display:flex; gap:3px; margin-bottom: 5px;">
-                    ${['assigned', 'en_route', 'on_site', 'rescue_in_progress'].map((s, i) => `
-                        <div style="flex:1; height:3px; border-radius:2px; background: ${STAGES.indexOf(m.status) >= i ? 'var(--green)' : 'rgba(255,255,255,0.1)'}"></div>
-                    `).join('')}
-                </div>
-            </div>
-        `).join('') || '<div style="color:var(--muted); text-align:center; padding:20px;">No active missions</div>';
+            document.getElementById('stat-rescue').textContent = active;
+            document.getElementById('badge-missions').textContent = active;
         }
 
         const STAGES = ['assigned', 'en_route', 'on_site', 'rescue_in_progress', 'completed'];
 
-        async function renderResources(list) {
-            const container = document.getElementById('list-resources');
-            const res = await fetch(`${API}/responders/summary`);
-            const summary = await res.json();
+        function eClass(type) {
+            if (!type) return 'default';
+            const t = type.toLowerCase();
+            if (t.includes('flood') || t.includes('water')) return 'flood';
+            if (t.includes('medical') || t.includes('health')) return 'medical';
+            if (t.includes('fire')) return 'fire';
+            return 'default';
+        }
 
-            let html = `
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
-                    ${summary.map(s => `
-                        <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:10px; text-align:center; border:1px solid rgba(255,255,255,0.05);">
-                            <div style="font-size:1.2rem;">${getIcon(s.type)}</div>
-                            <div style="font-size:0.6rem; color:var(--muted); text-transform:uppercase;">${s.type}</div>
-                            <div style="font-size:1rem; font-weight:800; color:var(--green)">${s.available}/${s.total}</div>
-                        </div>
-                    `).join('')}
-                </div>
-                <div style="font-size:0.7rem; font-weight:800; color:var(--muted); margin-bottom:10px;">INDIVIDUAL RESPONDERS</div>
-            `;
+        function renderKanban(list) {
+            const pEl = document.getElementById('triage-pending');
+            const aEl = document.getElementById('triage-active');
+            pEl.innerHTML = ''; aEl.innerHTML = '';
+            let pCount = 0, aCount = 0;
 
-            html += list.map(r => `
-                <div class="card" onclick="map.flyTo([${r.lat || 13.08}, ${r.lon || 80.27}], 16)">
-                    <div class="card-title">
-                        <span style="font-size:0.8rem;">${getIcon(r.type)} ${r.name}</span>
-                        <span style="font-size:0.6rem; color:${r.status === 'available' ? 'var(--green)' : '#ff5555'}">${r.status.toUpperCase()}</span>
+            list.forEach(s => {
+                if (['rescued', 'closed', 'completed'].includes(s.status)) return;
+                const isActive = ['assigned', 'in_progress'].includes(s.status);
+                const isCrit = s.priority_score > 80 || s.emergency_type === 'medical';
+                const mission = lastData.missions?.find(m => m.sos_id === s.sos_id && m.status !== 'completed');
+                const progress = mission ? STAGES.indexOf(mission.status) : -1;
+
+                const card = document.createElement('div');
+                card.className = `sos-card ${isActive ? 'dispatched' : isCrit ? 'critical' : ''} ${selectedSOS === s.sos_id ? 'selected' : ''}`;
+
+                card.innerHTML = `
+                <div class="card-top">
+                    <div class="etype-badge ${eClass(s.emergency_type)}">${s.emergency_type.toUpperCase()}</div>
+                    <div class="status-pill ${isActive ? 'deployed' : isCrit ? 'critical' : 'pending'}">
+                        ${isActive ? 'DEPLOYED' : isCrit ? 'CRITICAL' : 'PENDING'}
                     </div>
                 </div>
-            `).join('');
-            container.innerHTML = html;
+                ${isCrit && !isActive ? '<div class="pulse-ring"></div>' : ''}
+                <div class="card-location">${s.approx_loc}</div>
+                <div class="card-meta">
+                    <span>👥 ${s.people_count} persons</span>
+                    <span>⏱ ${formatTime(s.created_at)}</span>
+                </div>
+                ${isActive && mission ? `
+                    <div class="mbar">
+                        ${STAGES.slice(0, 4).map((_, i) => `<div class="mseg ${progress > i ? 'done' : progress === i ? 'current' : ''}"></div>`).join('')}
+                    </div>
+                    <div class="mstatus">${mission.status.replace(/_/g, ' ')}</div>
+                ` : ''}
+                ${!isActive ? `
+                    <button class="btn-deploy" onclick="event.stopPropagation(); findMatches('${s.sos_id}',${s.lat},${s.lon})">
+                        ⚡ DEPLOY TEAM
+                    </button>
+                ` : ''}
+            `;
+                card.onclick = () => focusSOS(s.sos_id, s.lat, s.lon);
+
+                if (isActive) { aEl.appendChild(card); aCount++; }
+                else { pEl.appendChild(card); pCount++; }
+            });
+
+            document.getElementById('count-unverified').textContent = pCount;
+            document.getElementById('badge-triage').textContent = pCount;
+            document.getElementById('count-dispatched').textContent = aCount;
+            if (!pCount) pEl.innerHTML = '<div class="empty"><div class="empty-icon">✅</div><div class="empty-txt">No pending SOS requests</div></div>';
+            if (!aCount) aEl.innerHTML = '<div class="empty"><div class="empty-icon">🚁</div><div class="empty-txt">No active deployments</div></div>';
+        }
+
+        function renderMissions(list) {
+            const c = document.getElementById('list-missions');
+            const active = list.filter(m => m.status !== 'completed');
+            document.getElementById('badge-missions').textContent = active.length;
+            if (!active.length) {
+                c.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-txt">No active missions</div></div>';
+                return;
+            }
+            c.innerHTML = active.map(m => {
+                const p = STAGES.indexOf(m.status);
+                return `
+                <div class="mission-card" onclick="map.flyTo([${m.sos_lat || 13.08},${m.sos_lon || 80.27}],16)">
+                    <div class="mission-hdr">
+                        <div class="mission-title">${(m.type || 'RESCUE').toUpperCase()}</div>
+                        <div class="mission-stage">${m.status.replace(/_/g, ' ')}</div>
+                    </div>
+                    <div class="mission-team">🧑‍🚒 ${m.responder_name}</div>
+                    <div class="mbar">
+                        ${STAGES.slice(0, 4).map((_, i) => `<div class="mseg ${p > i ? 'done' : p === i ? 'current' : ''}"></div>`).join('')}
+                    </div>
+                </div>
+            `;
+            }).join('');
+        }
+
+        let resourceChart = null;
+        function renderResources(directory) {
+            if (!directory?.length) return;
+            const c = document.getElementById('resource-table-container');
+            const labels = directory.map(a => a.name.split(' ')[0]);
+            const data = directory.map(a => a.personnel_count);
+
+            if (!resourceChart) {
+                const ctx = document.getElementById('resourceChart').getContext('2d');
+                resourceChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [{ label: 'Personnel', data, backgroundColor: 'rgba(59,130,246,0.35)', borderColor: '#3b82f6', borderWidth: 1, borderRadius: 3 }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#3d5470', font: { size: 9 } } },
+                            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#3d5470', font: { size: 9 } } }
+                        }
+                    }
+                });
+            } else {
+                resourceChart.data.labels = labels;
+                resourceChart.data.datasets[0].data = data;
+                resourceChart.update();
+            }
+
+            c.innerHTML = `
+            <table class="res-table">
+                <thead><tr><th>Agency</th><th>Teams</th><th>Assets</th></tr></thead>
+                <tbody>
+                    ${directory.map(a => `
+                        <tr>
+                            <td>
+                                <div style="font-weight:600;color:var(--text);font-size:12px">${a.name}</div>
+                                <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-3)">${a.type}</div>
+                            </td>
+                            <td style="font-family:var(--font-mono);color:var(--blue);text-align:center">${a.teams_count}</td>
+                            <td style="font-family:var(--font-mono);font-size:11px;color:var(--text-2)">${Object.entries(a.assets).map(([k, v]) => `${getIcon(k)}${v}`).join(' ')}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+        }
+
+        function renderSitreps(list) {
+            const c = document.getElementById('list-sitreps');
+            if (!list?.length) {
+                c.innerHTML = '<div class="empty"><div class="empty-icon">📡</div><div class="empty-txt">Watching for field updates...</div></div>';
+                return;
+            }
+            c.innerHTML = `
+            <div class="section-hdr" style="margin-bottom:10px">
+                <span class="section-label">Latest Field Intelligence</span>
+                <span class="section-count">${list.length} reports</span>
+            </div>
+            ${list.map(s => `
+                <div class="sitrep-card">
+                    <div class="sitrep-hdr">
+                        <span class="sitrep-who">${s.responder_name}</span>
+                        <span class="sitrep-when">${formatTime(s.created_at)}</span>
+                    </div>
+                    <div class="sitrep-msg">${s.message}</div>
+                </div>
+            `).join('')}
+        `;
         }
 
         function renderAlerts(alerts, backups) {
-            const container = document.getElementById('list-alerts');
+            const c = document.getElementById('list-alerts');
             let html = '';
+            let count = 0;
 
-            // Backups first
-            html += backups.filter(b => b.status === 'pending').map(b => `
-            <div class="alert-box alert-critical">
-                <b>🆘 BACKUP NEEDED</b><br>
-                ${b.responder_name} needs ${b.request_type.toUpperCase()}<br>
-                <i>"${b.message || 'No message'}"</i>
-                <button class="btn-assign" style="background: var(--red)" onclick="dispatchBackup('${b.id}')">DISPATCH RESPONSE</button>
-            </div>
-        `).join('');
+            backups.filter(b => b.status === 'pending').forEach(b => {
+                count++;
+                html += `
+                <div class="alert-card critical">
+                    <div class="alert-title critical">🆘 BACKUP NEEDED</div>
+                    <div class="alert-body" style="margin-bottom:3px">${b.responder_name} → ${b.request_type.toUpperCase()}</div>
+                    <div class="alert-body" style="font-style:italic;margin-bottom:8px">"${b.message || 'No message'}"</div>
+                    <button class="btn-deploy danger" style="margin:0" onclick="dispatchBackup('${b.id}')">DISPATCH RESPONSE</button>
+                </div>
+            `;
+            });
 
-            html += alerts.map(a => `
-            <div class="alert-box alert-${a.level}">
-                <b>${a.level.toUpperCase()}</b>: ${a.message}
-            </div>
-        `).join('');
+            alerts.forEach(a => {
+                count++;
+                html += `
+                <div class="alert-card ${a.level}">
+                    <div class="alert-title ${a.level}">${a.level.toUpperCase()}</div>
+                    <div class="alert-body">${a.message}</div>
+                </div>
+            `;
+            });
 
-            container.innerHTML = html || '<div style="color:var(--muted); text-align:center; padding:20px;">No active alerts</div>';
+            document.getElementById('badge-alerts').textContent = count;
+            c.innerHTML = html || '<div class="empty"><div class="empty-icon">✅</div><div class="empty-txt">No active alerts</div></div>';
         }
 
         function updateMap(sos, resp) {
-            // SOS Markers
             sos.forEach(s => {
                 if (!s.lat) return;
-                
-                // NEW: Status-based coloring
-                let color = 'red'; // Default New
-                if (s.status === 'assigned') color = 'var(--blue)';
-                if (s.status === 'in_progress') color = 'var(--orange)';
-                if (s.status === 'rescued' || s.status === 'completed') color = 'var(--green)';
-                
-                // Priority override for New SOS
-                if (s.status === 'pending' && s.priority_score > 80) color = 'red';
-                else if (s.status === 'pending') color = '#ff3b3b';
-
-                const markerId = s.sos_id;
-                const assignedTeam = lastData.missions.find(m => m.sos_id === s.sos_id && m.status !== 'completed');
-                const tooltipText = `<b>${s.emergency_type.toUpperCase()}</b><br>${assignedTeam ? `Assigned: ${assignedTeam.responder_name}<br>Status: ${assignedTeam.status}` : 'Status: PENDING'}`;
-
-                if (markers.sos[markerId]) {
-                    markers.sos[markerId].setLatLng([s.lat, s.lon]).setStyle({ color });
-                    markers.sos[markerId].setTooltipContent(tooltipText);
+                let color = '#f43f5e';
+                if (s.status === 'assigned') color = '#3b82f6';
+                if (s.status === 'in_progress') color = '#f59e0b';
+                if (['rescued', 'closed'].includes(s.status)) color = '#10b981';
+                const isCrit = s.priority_score > 80 && s.status === 'pending';
+                const mid = s.sos_id;
+                const mission = lastData.missions.find(m => m.sos_id === s.sos_id && m.status !== 'completed');
+                const tip = `
+                <div style="padding:10px;min-width:200px;font-family:'IBM Plex Sans',sans-serif">
+                    <div style="font-weight:700;font-size:13px;color:${color};margin-bottom:4px">${isCrit ? '🚨 CRITICAL — ' : ''}${s.emergency_type.toUpperCase()}</div>
+                    <div style="font-size:11px;color:#7f9ab8;margin-bottom:8px">${s.approx_loc}</div>
+                    ${mission ? `
+                        <div style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);border-radius:5px;padding:8px">
+                            <div style="font-size:9px;color:#3b82f6;font-weight:700;text-transform:uppercase;margin-bottom:2px">Assigned Team</div>
+                            <div style="font-weight:700;font-size:12px;margin-bottom:4px">${mission.responder_name}</div>
+                            <div style="font-size:10px;background:#3b82f6;color:#fff;display:inline-block;padding:2px 7px;border-radius:3px">${mission.status.replace(/_/g, ' ')}</div>
+                        </div>
+                    ` : `<div style="font-size:10px;color:#f43f5e;font-weight:700">UNASSIGNED · AWAITING DISPATCH</div>`}
+                </div>
+            `;
+                if (markers.sos[mid]) {
+                    markers.sos[mid].setLatLng([s.lat, s.lon]).setStyle({ color, fillOpacity: isCrit ? 0.35 : 0.18 });
+                    markers.sos[mid].setTooltipContent(tip);
                 } else {
-                    markers.sos[markerId] = L.circle([s.lat, s.lon], { color, radius: 100, weight: 3, fillOpacity: 0.2 })
-                        .addTo(map).on('click', () => findMatches(s.sos_id, s.lat, s.lon))
-                        .bindTooltip(tooltipText);
+                    markers.sos[mid] = L.circle([s.lat, s.lon], {
+                        color, radius: 120, weight: isCrit ? 3 : 2, fillOpacity: 0.18,
+                        dashArray: s.status === 'pending' ? '' : '5,5'
+                    }).addTo(map)
+                        .on('click', () => findMatches(s.sos_id, s.lat, s.lon))
+                        .bindTooltip(tip, { sticky: true });
                 }
             });
 
-            // Responder Markers
             resp.forEach(r => {
                 if (!r.lat) return;
-                const color = r.status === 'available' ? 'cyan' : '#444';
+                const color = r.status === 'available' ? '#06b6d4' : '#2d3f57';
                 if (markers.resp[r.id]) {
                     markers.resp[r.id].setLatLng([r.lat, r.lon]).setStyle({ color });
                 } else {
                     markers.resp[r.id] = L.circleMarker([r.lat, r.lon], { color, radius: 6, weight: 2, fillOpacity: 1 })
-                        .addTo(map).bindTooltip(`${r.name} (${r.status})`);
+                        .addTo(map).bindTooltip(`<b>${r.name}</b><br>${r.type.toUpperCase()} (${r.status})`);
                 }
             });
         }
@@ -584,116 +1706,144 @@
         async function focusSOS(id, lat, lon) {
             selectedSOS = id;
             map.flyTo([lat, lon], 16);
-            renderSOS(lastData.sos); // Update active state
+            renderKanban(lastData.sos);
         }
 
         async function findMatches(sosId, lat, lon) {
+            const sos = lastData.sos.find(s => s.sos_id === sosId);
+            if (sos && ['rescued', 'closed', 'completed'].includes(sos.status)) {
+                showToast('This SOS is already resolved', 'err'); return;
+            }
             selectedSOS = sosId;
             const res = await fetch(`${API}/responders/nearby?lat=${lat}&lon=${lon}&radius_km=10`);
             const matches = await res.json();
-
             const hud = document.getElementById('assign-hud');
-            const container = document.getElementById('hud-candidates');
+            const bd = document.getElementById('hud-backdrop');
+            const ctn = document.getElementById('hud-candidates');
             hud.style.display = 'block';
+            bd.style.display = 'block';
 
-            container.innerHTML = matches.map(m => `
-                <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 12px; margin-bottom: 8px; border: 1px solid ${m.special_instruction ? 'var(--orange)' : 'rgba(255,255,255,0.1)'};">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                        <b>${m.name}</b>
-                        <span style="color:var(--green)">${m.match_score} pts</span>
-                    </div>
-                    <div style="font-size:0.75rem; color:var(--muted); margin-bottom:4px;">
-                        Dist: ${m.distance_km}km • Trust: ${m.trust_level}% • ${m.type}
-                    </div>
-                    ${m.special_instruction ? `
-                        <div style="font-size:0.65rem; color:var(--orange); font-weight:800; background:rgba(255,159,0,0.1); padding:5px; border-radius:5px; margin-bottom:8px;">
-                            📜 ${m.special_instruction}
-                        </div>
-                    ` : ''}
-                    <button class="btn-assign" style="margin:0; font-size:0.75rem;" onclick="assign('${sosId}', '${m.id}')">DISPATCH TEAM</button>
+            ctn.innerHTML = matches.map(m => `
+            <div class="candidate ${m.special_instruction ? 'warn' : ''}">
+                <div class="cand-hdr">
+                    <div class="cand-name">${m.name}</div>
+                    <div class="cand-pts">${m.match_score} pts</div>
                 </div>
-            `).join('') || '<div style="color:var(--muted)">No teams available in radius</div>';
+                <div class="cand-meta">📍 ${m.distance_km} km · Trust ${m.trust_level}% · ${m.type.toUpperCase()}</div>
+                ${m.special_instruction ? `<div class="cand-inst">📋 ${m.special_instruction}</div>` : ''}
+                <button class="btn-deploy" onclick="assign('${sosId}','${m.id}')">⚡ DISPATCH TEAM</button>
+            </div>
+        `).join('') || '<div class="empty"><div class="empty-icon">🔍</div><div class="empty-txt">No available teams within radius</div></div>';
 
-            renderSOS(lastData.sos); // Refresh UI state
+            renderKanban(lastData.sos);
         }
 
         async function assign(sosId, respId) {
-            const res = await fetch(`${API}/missions/create`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sos_id: sosId })
-            });
-            const mid = (await res.json()).mission_id;
+            try {
+                const r1 = await fetch(`${API}/missions/create`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sos_id: sosId })
+                });
+                if (!r1.ok) { const e = await r1.json(); throw new Error(e.detail || 'Mission creation failed'); }
+                const d = await r1.json();
+                if (!d.mission_id) throw new Error('Mission ID not returned');
 
-            const res2 = await fetch(`${API}/missions/${mid}/assign`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ responder_id: respId })
-            });
-
-            if (res2.ok) {
-                hideHUD();
-                refresh();
-                alert("Dispatched!");
+                const r2 = await fetch(`${API}/missions/${d.mission_id}/assign`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ responder_id: respId })
+                });
+                if (r2.ok) {
+                    hideHUD(); refresh();
+                    showToast('🚀 DISPATCH CONFIRMED — Team is en-route', 'ok');
+                } else {
+                    const e = await r2.json(); throw new Error(e.detail || 'Assignment failed');
+                }
+            } catch (e) {
+                showToast('Dispatch Error: ' + e.message, 'err');
+                console.error(e);
             }
         }
 
         async function dispatchBackup(id) {
-            const res = await fetch(`${API}/missions/support-requests/${id}/dispatch`, { method: 'PUT' });
-            if (res.ok) {
-                alert("Dispatch center confirmed backup.");
-                refresh();
-            }
+            const r = await fetch(`${API}/missions/support-requests/${id}/dispatch`, { method: 'PUT' });
+            if (r.ok) { showToast('Backup dispatch confirmed', 'ok'); refresh(); }
         }
 
-        function hideHUD() { document.getElementById('assign-hud').style.display = 'none'; selectedSOS = null; }
+        function hideHUD() {
+            document.getElementById('assign-hud').style.display = 'none';
+            document.getElementById('hud-backdrop').style.display = 'none';
+            selectedSOS = null;
+        }
+
         function formatTime(ts) { return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
-        function getIcon(type) { const icons = { boat: '🚤', medical: '🏥', volunteer: '🧑‍🚒', ambulance: '🚑', helicopter: '🚁', logistics: '🚛', fire: '🚒' }; return icons[type] || '🧑‍🚒'; }
+
+        function getIcon(type) {
+            const m = { boat: '🚤', medical: '🏥', volunteer: '🧑‍🚒', ambulance: '🚑', helicopter: '🚁', logistics: '🚛', fire: '🚒' };
+            return m[type] || '🧑‍🚒';
+        }
 
         function switchTab(id, el) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.list-container').forEach(l => l.style.display = 'none');
-            if (el) el.classList.add('active');
-            else if (event) event.currentTarget.classList.add('active');
-            document.getElementById('list-' + id).style.display = 'block';
+            document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+            el.classList.add('active');
+            document.getElementById('list-' + id).classList.add('active');
         }
 
         function toggleTopo() {
+            const btn = document.getElementById('topo-btn');
             if (activeLayer === 'dark') {
-                map.removeLayer(baseLayers.dark);
-                baseLayers.topo.addTo(map);
-                activeLayer = 'topo';
-                document.getElementById('topo-btn').textContent = '🛰️ DARK MAP';
+                map.removeLayer(baseLayers.dark); baseLayers.topo.addTo(map);
+                activeLayer = 'topo'; btn.classList.add('on'); btn.innerHTML = '🛰 DARK MAP';
             } else {
-                map.removeLayer(baseLayers.topo);
-                baseLayers.dark.addTo(map);
-                activeLayer = 'dark';
-                document.getElementById('topo-btn').textContent = '🏔️ TOPO MAP';
+                map.removeLayer(baseLayers.topo); baseLayers.dark.addTo(map);
+                activeLayer = 'dark'; btn.classList.remove('on'); btn.innerHTML = '🏔 TOPO';
             }
         }
 
-        function toggleWeather(type) {
-            const layer = weatherLayers[type];
-            if (map.hasLayer(layer)) {
-                map.removeLayer(layer);
-                document.getElementById('rain-btn').style.background = 'var(--panel)';
-            } else {
-                layer.addTo(map);
-                document.getElementById('rain-btn').style.background = 'rgba(0,136,255,0.3)';
-                alert("Note: Real-time weather data requires a valid API key. Using placeholder overlay.");
-            }
+        async function toggleWeather() {
+            const btn = document.getElementById('rain-btn');
+            if (rainLayer) { map.removeLayer(rainLayer); rainLayer = null; btn.classList.remove('on'); return; }
+            try {
+                const meta = await fetch('https://api.rainviewer.com/public/weather-maps.json').then(r => r.json());
+                const ts = meta.radar.past[meta.radar.past.length - 1].time;
+                rainLayer = L.tileLayer(`https://tilecache.rainviewer.com/v2/radar/${ts}/256/{z}/{x}/{y}/2/1_1.png`, { opacity: 0.6, zIndex: 400 }).addTo(map);
+                btn.classList.add('on');
+            } catch (e) { showToast('Rain layer unavailable', 'err'); }
+        }
+
+        function toggleThermal() {
+            const btn = document.getElementById('thermal-btn');
+            if (thermalLayer) { map.removeLayer(thermalLayer); thermalLayer = null; btn.classList.remove('on'); return; }
+            const pts = lastData.sos.map(s => [s.lat, s.lon, s.priority_score / 100]);
+            const hotspots = [[13.01, 80.22, 0.9], [13.065, 80.285, 0.7], [13.085, 80.21, 0.8], [13.15, 80.25, 0.6], [12.92, 80.23, 0.5]];
+            thermalLayer = L.heatLayer([...pts, ...hotspots], {
+                radius: 45, blur: 25, maxZoom: 13,
+                gradient: { 0.2: 'blue', 0.5: 'cyan', 0.8: 'lime', 1: 'yellow' }
+            }).addTo(map);
+            btn.classList.add('on');
+        }
+
+        function toggleFloodLayer() {
+            const btn = document.getElementById('flood-btn');
+            if (inundationLayer) { map.removeLayer(inundationLayer); inundationLayer = null; btn.classList.remove('on'); return; }
+            inundationLayer = L.layerGroup([[13.0827, 80.2707, 3000], [13.04, 80.24, 2500], [13.12, 80.21, 2800], [13.0, 80.2, 2000]].map(p =>
+                L.circle([p[0], p[1]], { radius: p[2], color: 'rgba(0,200,255,0.5)', weight: 2, dashArray: '5,8', fillColor: '#0088ff', fillOpacity: 0.1 })
+            )).addTo(map);
+            btn.classList.add('on');
+        }
+
+        async function verifySOS(ids, status) {
+            await fetch(`${API}/sos/${ids}/verify?status=${status}`, { method: 'PUT' });
+            refresh();
         }
 
         function changeZone() {
-            const val = document.getElementById('zone-select').value;
-            if (val && DIST_COORDS[val]) {
-                map.flyTo(DIST_COORDS[val], 13);
-            }
+            const v = document.getElementById('zone-select').value;
+            if (v && DIST_COORDS[v]) map.flyTo(DIST_COORDS[v], 13);
         }
 
         init();
     </script>
-
 </body>
 
 </html>

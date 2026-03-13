@@ -89,6 +89,23 @@ def get_by_phone(phone: str):
     return dict(row)
 
 
+@router.post("/login")
+def login_responder(data: dict):
+    """Simplified login for volunteer app using phone number."""
+    phone = data.get("phone")
+    if not phone:
+        raise HTTPException(status_code=400, detail="Phone number required")
+    
+    conn = get_db()
+    row = conn.execute("SELECT * FROM responders WHERE phone=?", (phone,)).fetchone()
+    conn.close()
+    
+    if not row:
+        raise HTTPException(status_code=404, detail="Volunteer not found")
+    
+    return dict(row)
+
+
 @router.get("/nearby")
 def get_nearby(
     lat: float = Query(..., description="Center latitude"),
