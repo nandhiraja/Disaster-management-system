@@ -1715,48 +1715,95 @@
                 showToast('This SOS is already resolved', 'err'); return;
             }
             selectedSOS = sosId;
-            const res = await fetch(`${API}/responders/nearby?lat=${lat}&lon=${lon}&radius_km=10`);
-            const matches = await res.json();
             const hud = document.getElementById('assign-hud');
             const bd = document.getElementById('hud-backdrop');
             const ctn = document.getElementById('hud-candidates');
             hud.style.display = 'block';
             bd.style.display = 'block';
-
-            ctn.innerHTML = matches.map(m => `
-            <div class="candidate ${m.special_instruction ? 'warn' : ''}">
-                <div class="cand-hdr">
-                    <div class="cand-name">${m.name}</div>
-                    <div class="cand-pts">${m.match_score} pts</div>
-                </div>
-                <div class="cand-meta">📍 ${m.distance_km} km · Trust ${m.trust_level}% · ${m.type.toUpperCase()}</div>
-                ${m.special_instruction ? `<div class="cand-inst">📋 ${m.special_instruction}</div>` : ''}
-                <button class="btn-deploy" onclick="assign('${sosId}','${m.id}')">⚡ DISPATCH TEAM</button>
-            </div>
-        `).join('') || '<div class="empty"><div class="empty-icon">🔍</div><div class="empty-txt">No available teams within radius</div></div>';
+            
+            ctn.innerHTML = '<div class="empty"><div class="empty-icon" style="font-size:32px;animation:pulse 1s infinite">🤖</div><div class="empty-txt">AI analyzing situation and responders...</div></div>';
+            
+            try {
+                const res = await fetch(`${API}/sos/${sosId}/recommendation`);
+                
+                if (!res.ok) {
+                    let errStr = `HTTP ${res.status}`;
+                    try { const errObj = await res.json(); errStr = errObj.detail || errStr; } catch(e){}
+                    throw new Error(errStr);
+                }
+                
+                const aiData = await res.json();
+                
+                let html = '';
+                
+                if (aiData.recommended_plan && aiData.recommended_plan.length > 0) {
+                    html += '<div style="font-family:var(--font-mono);font-size:10px;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">AI Recommended Response</div>';
+                    html += aiData.recommended_plan.map(m => `
+                        <div class="candidate" style="border-left:3px solid var(--blue);background:rgba(59,130,246,0.05)">
+                            <div class="cand-hdr">
+                                <div class="cand-name">⭐ ${m.name}</div>
+                                <div class="cand-pts">${m.score} pts</div>
+                            </div>
+                            <div class="cand-meta">📍 ${m.distance_km} km · ${m.type.toUpperCase()}</div>
+                            <div class="cand-inst" style="background:var(--blue-dim);border-color:rgba(59,130,246,0.3);color:var(--blue)">✨ <b>AI Reason:</b> ${m.reason}</div>
+                            <button class="btn-deploy" onclick="assign('${sosId}','${m.team_id}')">⚡ ACTIVATE RECOMMENDED</button>
+                        </div>
+                    `).join('');
+                }
+                
+                if (aiData.alternative_options && aiData.alternative_options.length > 0) {
+                    html += '<div style="font-family:var(--font-mono);font-size:10px;color:var(--text-3);margin-top:16px;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Alternative Options</div>';
+                    html += aiData.alternative_options.map(m => `
+                        <div class="candidate">
+                            <div class="cand-hdr">
+                                <div class="cand-name">${m.name}</div>
+                                <div class="cand-pts">${m.score} pts</div>
+                            </div>
+                            <div class="cand-meta">📍 ${m.distance_km} km · ${m.type ? m.type.toUpperCase() : 'UNKNOWN'}</div>
+                            <div class="cand-inst" style="background:var(--surface-3);border-color:var(--border);color:var(--text-2)"><b style="color:var(--text)">Reason:</b> ${m.reason}</div>
+                            <button class="btn-deploy" style="background:var(--surface-3);color:var(--text);border:1px solid var(--border-hi)" onclick="assign('${sosId}','${m.team_id}')">DISPATCH ALTERNATIVE</button>
+                        </div>
+                    `).join('');
+                }
+                
+                if (aiData.all_available_responders && aiData.all_available_responders.length > 0) {
+                    html += '<div style="font-family:var(--font-mono);font-size:10px;color:var(--text-3);margin-top:16px;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">All Available Resources (50km Radius)</div>';
+                    html += aiData.all_available_responders.map(m => `
+                        <div class="candidate ${m.special_instruction ? 'warn' : ''}">
+                            <div class="cand-hdr">
+                                <div class="cand-name">${m.name}</div>
+                                <div class="cand-pts">${m.ai_score} pts</div>
+                            </div>
+                            <div class="cand-meta">📍 ${m.distance_km} km · Trust ${m.trust_score}% · ${m.type ? m.type.toUpperCase() : 'UNKNOWN'}</div>
+                            ${m.special_instruction ? `<div class="cand-inst">📋 ${m.special_instruction}</div>` : ''}
+                            <button class="btn-deploy" style="background:transparent;color:var(--text-2);border:1px solid var(--border-hi)" onclick="assign('${sosId}','${m.id}')">MANUAL DISPATCH</button>
+                        </div>
+                    `).join('');
+                }
+                
+                if (!html) {
+                    html = '<div class="empty"><div class="empty-icon">🔍</div><div class="empty-txt">No available teams found for recommendation.</div></div>';
+                }
+                
+                ctn.innerHTML = html;
+            } catch (err) {
+                ctn.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-txt">AI Error: ${err.message}</div></div>`;
+            }
 
             renderKanban(lastData.sos);
         }
 
         async function assign(sosId, respId) {
             try {
-                const r1 = await fetch(`${API}/missions/create`, {
+                const r1 = await fetch(`${API}/missions/assign`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sos_id: sosId })
+                    body: JSON.stringify({ sos_id: sosId, responder_id: respId })
                 });
-                if (!r1.ok) { const e = await r1.json(); throw new Error(e.detail || 'Mission creation failed'); }
-                const d = await r1.json();
-                if (!d.mission_id) throw new Error('Mission ID not returned');
-
-                const r2 = await fetch(`${API}/missions/${d.mission_id}/assign`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ responder_id: respId })
-                });
-                if (r2.ok) {
+                if (r1.ok) {
                     hideHUD(); refresh();
                     showToast('🚀 DISPATCH CONFIRMED — Team is en-route', 'ok');
                 } else {
-                    const e = await r2.json(); throw new Error(e.detail || 'Assignment failed');
+                    const e = await r1.json(); throw new Error(e.detail || 'Assignment failed');
                 }
             } catch (e) {
                 showToast('Dispatch Error: ' + e.message, 'err');
