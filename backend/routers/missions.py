@@ -6,6 +6,8 @@ from pydantic import BaseModel
 from typing import Optional, List
 from database import get_db
 from services.matcher import find_best_responder, get_top_candidates
+from services.assignment_service import assign_mission, AssignmentError
+from services.notification_service import notify_responder
 
 router = APIRouter()
 
@@ -25,9 +27,34 @@ class MissionStatusUpdate(BaseModel):
     people_rescued: Optional[int] = None
 
 
+class MissionAssignNew(BaseModel):
+    sos_id: str
+    responder_id: str
+    mission_type: Optional[str] = "rescue"
+    notes: Optional[str] = ""
+
+
 class BackupRequest(BaseModel):
     request_type: str   # boat / medical / fire / evacuation / logistics
     message: Optional[str] = None
+
+
+@router.post("/assign")
+def api_assign_mission(data: MissionAssignNew):
+    """
+    Step 2 Replacement: Uses safely-wrapped Assignment Service and logs/notifies responder.
+    """
+    try:
+        result = assign_mission(data.sos_id, data.responder_id, data.mission_type, data.notes)
+        
+        # Trigger Notification
+        notify_responder(data.responder_id, result.get("mission_id"), "You have a new mission assignment.")
+        
+        return result
+    except AssignmentError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 
 @router.post("/create")

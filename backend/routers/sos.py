@@ -4,6 +4,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from database import get_db
+from services.ai_service import parse_sos_message, generate_hybrid_recommendation
+from services.matcher import haversine
 
 router = APIRouter()
 
@@ -20,6 +22,10 @@ class SOSCreate(BaseModel):
 
 class SOSStatusUpdate(BaseModel):
     status: str
+
+
+class SOSParseRequest(BaseModel):
+    message: str
 
 
 def calc_triage(emergency_type: str, people_count: int) -> tuple:
@@ -158,3 +164,54 @@ def update_sos_status(sos_id: str, data: SOSStatusUpdate):
     if result.rowcount == 0:
         raise HTTPException(status_code=404, detail="SOS not found")
     return {"message": "Status updated", "status": data.status}
+
+
+@router.post("/parse")
+def parse_sos(data: SOSParseRequest):
+    """Uses LLM to convert a messy message into structured JSON."""
+    parsed_data = parse_sos_message(data.message)
+    return parsed_data
+
+
+@router.get("/{sos_id}/recommendation")
+def get_recommendation(sos_id: str):
+    """
+    On-Demand generation format:
+    Fetches SOS details, fetches available relevant responders,
+    passes context through hybrid recommendation engine (rules -> scoring -> LLM).
+    """
+    conn = get_db()
+    try:
+        sos_row = conn.execute("SELECT * FROM sos_requests WHERE sos_id=?", (sos_id,)).fetchone()
+        if not sos_row:
+            raise HTTPException(status_code=404, detail="SOS not found")
+            
+        sos_data = dict(sos_row)
+        
+        # Fetch available responders near the SOS location
+        # Distance calculation inline (can offload to SQL if geospatial enabled, doing Python for prototype)
+        lat = sos_data.get("lat")
+        lon = sos_data.get("lon")
+        
+        all_responders = conn.execute("SELECT * FROM responders WHERE status='available'").fetchall()
+        
+        nearby_responders = []
+        for row in all_responders:
+            r = dict(row)
+            if lat and lon and r.get("lat") and r.get("lon"):
+                dist = haversine(lat, lon, r["lat"], r["lon"])
+                if dist <= 50.0:  # Only consider within 50km
+                    r["distance_km"] = round(dist, 2)
+                    nearby_responders.append(r)
+            else:
+                # If no lat/lon, assume 10km (fallback) for testing purposes
+                r["distance_km"] = 10.0
+                nearby_responders.append(r)
+                
+        # Call Hybrid engine
+        recommendation_result = generate_hybrid_recommendation(sos_data, nearby_responders)
+        return recommendation_result
+
+    finally:
+        conn.close()
+
